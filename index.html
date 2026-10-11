@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Regularity">
+<meta name="theme-color" content="#0f1319">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}body{margin:0}</style>
+<title>Regularity Χρονόμετρο</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@400;500;600;700&family=Fira+Mono:wght@500&display=swap">
+<style>
+/* In-car instrument: one dark cockpit look, amber LCD digits, huge countdown, thumb-sized controls at the bottom */
+:root{
+  --bg:#0f1319; --panel:#181e27; --panel2:#202835; --line:#2c3543;
+  --fg:#eef1f5; --mute:#8b96a6; --amber:#ffb428; --amber-ink:#1a1206;
+  --late:#ff5d4f; --early:#53c2f2; --ok:#62d391;
+  --f-ui:"Fira Sans Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-num:"Fira Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-ui);font-size:17px;padding-inline:16px;padding-block:8px 24px;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+button{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;touch-action:manipulation}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button.primary{background:var(--amber);color:var(--amber-ink);border-color:var(--amber);font-weight:700}
+button.ghost{background:transparent}
+button.danger{color:var(--late);border-color:color-mix(in srgb,var(--late) 45%,var(--line))}
+input,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+input[type=number],input[type=time]{font-family:var(--f-num);font-size:16px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.mute{color:var(--mute)}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--mute);font-weight:600}
+
+/* top bar */
+.bar{display:flex;align-items:center;gap:10px;padding-top:6px}
+.bar h1{font-size:22px;margin:0;font-weight:700;letter-spacing:.01em;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clock{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.clock .t{font-family:var(--f-num);font-size:20px;color:var(--amber)}
+.clock .o{font-size:11px;color:var(--mute)}
+.syncbtn{padding:6px 10px;font-size:14px}
+
+/* stage list */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.card h2{margin:0;font-size:20px;min-width:0;overflow-wrap:anywhere}
+.chip{font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
+.chip.run{color:var(--amber);border-color:var(--amber)}
+.cbadge{display:inline-block;font-family:var(--f-num);font-size:13px;font-weight:600;color:var(--early);border:1px solid var(--early);border-radius:999px;padding:1px 7px;align-self:center}
+.hero.alert .cbadge{color:var(--amber-ink);border-color:var(--amber-ink)}
+.card.closed{opacity:.55}
+.chip.done{color:var(--ok);border-color:var(--ok)}
+.meta{display:flex;gap:16px;flex-wrap:wrap;font-size:15px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>button{flex:1}
+.add{border-style:dashed;padding:14px;color:var(--amber);background:transparent}
+
+/* run view */
+.startline{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.startline .v{font-family:var(--f-num);font-size:22px}
+.nudge{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.nudge button{padding:9px 0;font-family:var(--f-num);font-size:15px}
+.hero{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px 14px 18px;text-align:center;display:flex;flex-direction:column;gap:6px}
+.hero .pt{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;font-size:18px}
+.hero .pt b{font-family:var(--f-num);font-weight:500;font-size:22px}
+.count{font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:clamp(64px,22vw,128px);line-height:1;letter-spacing:-.02em;color:var(--amber);margin:6px 0}
+.count.late{color:var(--late)}
+.count.soon{color:var(--fg)}
+.hero.alert{background:var(--amber);border-color:var(--amber);animation:pulse 1s ease-out infinite}
+.hero.alert .count,.hero.alert .phase,.hero.alert .pt,.hero.alert .mute,.hero.alert .num{color:var(--amber-ink)}
+.hero.alert .count{font-size:clamp(120px,46vw,240px);font-weight:700}
+.count .frac{display:block;font-size:18px;font-weight:500;letter-spacing:0;opacity:.75;margin-top:4px}
+body.alert{background:color-mix(in srgb,var(--amber) 22%,var(--bg))}
+@keyframes pulse{0%{filter:brightness(1.35);transform:scale(1.015)}60%,100%{filter:brightness(1);transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.hero.alert{animation:none}}
+.hero.pre{border:2px solid var(--early);background:color-mix(in srgb,var(--early) 12%,var(--panel))}
+.hero.pre .count{color:var(--early)}
+.hero.pre .phase{color:var(--early);font-size:22px;letter-spacing:.14em}
+.prebadge{align-self:center;background:var(--early);color:var(--bg);font-weight:700;font-size:13px;letter-spacing:.12em;padding:4px 12px;border-radius:999px}
+button.primary.next:disabled{background:var(--panel2);color:var(--mute);border-color:var(--line)}
+.phase{font-size:14px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;color:var(--mute)}
+.next{font-size:26px;padding:20px;border-radius:16px;letter-spacing:.06em}
+.pts{width:100%;border-collapse:collapse;font-size:15px}
+.pts td,.pts th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right}
+.pts th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.pts td:first-child,.pts th:first-child{text-align:left}
+.pts tr.cur td{background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--fg)}
+.pts tr.past td{color:var(--mute)}
+.d-late{color:var(--late)} .d-early{color:var(--early)} .d-ok{color:var(--ok)}
+.tablebox{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 8px}
+
+/* editor */
+.field{display:flex;flex-direction:column;gap:6px}
+.ptrow input{padding:9px 6px}
+.ptrow{display:grid;grid-template-columns:18px 1.25fr 1fr 1fr 36px;gap:8px;align-items:center}
+.ptrow .i{color:var(--mute);font-family:var(--f-num);font-size:14px}
+.ptrow button{padding:9px 0}
+details summary{cursor:pointer;color:var(--mute);font-size:15px}
+textarea{min-height:110px;font-family:var(--f-num);font-size:15px}
+
+/* sync sheet */
+.sheet{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 82%,transparent);display:flex;align-items:flex-end;justify-content:center;z-index:5;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.sheet .in{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;max-width:560px;width:100%;display:flex;flex-direction:column;gap:12px}
+.sheet h3{margin:0;font-size:20px}
+.sheet p{margin:0;line-height:1.45;color:var(--mute);font-size:15px}
+.tap{font-size:22px;padding:22px}
+.offs{font-family:var(--f-num);font-size:26px;text-align:center}
+a{color:var(--amber)}
+.tin{display:flex;align-items:center;gap:6px;font-family:var(--f-num);font-size:22px}
+.tin .tseg{width:3.4em;text-align:center;font-size:24px;padding:10px 4px;font-family:var(--f-num)}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:15px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="sheet" hidden></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+const pad=(n,l=2)=>String(n).padStart(l,'0');
+let S, draft=null, delId=null, lastBeep={key:'',sec:null}, wake=null;
+
+function now(){return Date.now()+(S.offset||0)}
+function hms(d){return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())}
+function hmst(ms){const d=new Date(ms);return hms(d)+'.'+Math.floor(d.getMilliseconds()/100)}
+function seed(){
+  const d=new Date(Date.now()+3*60000);d.setSeconds(0,0);
+  return {offset:0,sound:true,view:'list',active:null,stages:[
+    {id:uid(),name:'ΕΙ 1 (παράδειγμα)',start:hms(d),idx:0,pass:[],
+     points:[{m:400,s:40},{m:800,s:60},{m:1500,s:115},{m:2300,s:170},{m:3000,s:228}]}]};
+}
+function load(){try{S=JSON.parse(localStorage.getItem('regularity-v1'))}catch(e){S=null}
+  if(!S||!Array.isArray(S.stages))S=seed();
+  if(!S.snd)S.snd=S.sound===false?'off':'voice';}
+function save(){try{localStorage.setItem('regularity-v1',JSON.stringify(S))}catch(e){}}
+function normT(t){const p=String(t||'00:00:00').split(':');while(p.length<3)p.push('00');return p.slice(0,3).map(x=>pad(parseInt(x)||0)).join(':')}
+function startMs(st){const [h,m,s]=normT(st.start).split(':').map(Number);const d=new Date(now());d.setHours(h,m,s,0);return d.getTime()}
+function corr(p){return Number(p.c)||0}
+function fmtC(c){return (c>0?'+':'−')+Math.abs(c).toFixed(1).replace('.',',')}
+function parseC(v){if(v==null||v==='')return 0;const n=parseFloat(String(v).replace(',','.').replace('−','-'));return isNaN(n)?0:Math.round(n*10)/10}
+function target(st,i){const p=st.points[i];return startMs(st)+((Number(p.s)||0)+corr(p))*1000}
+function stageOf(id){return S.stages.find(s=>s.id===id)}
+function fmtCount(r){
+  if(r>=0){const t=Math.ceil(r/100)/10;const m=Math.floor(t/60);const s=t-m*60;
+    return m>0?m+':'+pad(Math.floor(s))+'.'+Math.round((s%1)*10)%10:s.toFixed(1);}
+  const t=Math.floor(-r/100)/10;const m=Math.floor(t/60);const s=t-m*60;
+  return '+'+(m>0?m+':'+pad(Math.floor(s))+'.'+Math.round((s%1)*10)%10:s.toFixed(1));
+}
+function bigCount(r){
+  const s=r>0?Math.ceil(r/1000):Math.floor(-r/1000);
+  const txt=s>=60?Math.floor(s/60)+':'+pad(s%60):String(s);
+  const frac=r>0?(r/1000).toFixed(1)+' s':'+'+(-r/1000).toFixed(1)+' s';
+  return (r>0?'':'+')+txt+'<span class="frac">'+frac+'</span>';
+}
+function fmtDelta(ms){const v=ms/1000;const cls=Math.abs(v)<=0.3?'d-ok':v>0?'d-late':'d-early';
+  return '<span class="num '+cls+'">'+(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(1)+'</span>'}
+function status(st){if(st.idx>=st.points.length&&st.points.length)return['done','Ολοκληρώθηκε'];
+  if(st.idx>0||now()>=startMs(st))return['run','Σε εξέλιξη'];return['','Αναμονή']}
+function tIn(id,val){const [h,m,s]=normT(val).split(':');
+  const f=(k,v,max,lab)=>`<input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" id="${id}_${k}" value="${v}" data-max="${max}" data-tnext="${k==='h'?id+'_m':k==='m'?id+'_s':''}" aria-label="${lab}" class="tseg">`;
+  return `<div class="tin">${f('h',h,23,'Ώρα')}<span>:</span>${f('m',m,59,'Λεπτά')}<span>:</span>${f('s',s,59,'Δευτερόλεπτα')}</div>`}
+function tRead(id){const g=k=>Math.min(Number($('#'+id+'_'+k).dataset.max),parseInt($('#'+id+'_'+k).value)||0);return pad(g('h'))+':'+pad(g('m'))+':'+pad(g('s'))}
+function offsetTxt(){const o=(S.offset||0)/1000;return o===0?'χωρίς διόρθωση':'διόρθωση '+(o>0?'+':'−')+Math.abs(o).toFixed(2)+' s'}
+
+/* ---------- views ---------- */
+function topbar(title,back){
+  return `<div class="bar">${back?'<button class="ghost" data-a="back" aria-label="Πίσω">←</button>':''}
+  <h1>${esc(title)}</h1>
+  <div class="clock"><span class="t num" id="clk">--:--:--</span><button class="ghost syncbtn" data-a="sync" id="offtxt">${offsetTxt()}</button></div></div>`;
+}
+function vList(){
+  const cards=S.stages.map(st=>{
+    const [c,l]=status(st);const last=st.points[st.points.length-1];
+    return `<div class="card${st.closed?' closed':''}"><div class="top"><h2>${esc(st.name)}</h2><span class="chip ${c}">${l}</span></div>
+    <div class="meta"><span><span class="label">Εκκίνηση</span> <span class="num">${normT(st.start)}</span></span>
+    <span><span class="label">Σημεία</span> <span class="num">${st.points.length}</span></span>
+    ${last?`<span><span class="label">Σύνολο</span> <span class="num">${last.m} m · ${last.s} s</span></span>`:''}</div>
+    ${delId===st.id?`<div class="confirm">Διαγραφή της ειδικής; <button class="danger" data-a="delyes" data-id="${st.id}">Διαγραφή</button><button data-a="delno">Άκυρο</button></div>`:
+    `<div class="row"><button class="primary" data-a="run" data-id="${st.id}">${c==='run'?'Συνέχεια':c==='done'?'Προβολή':'Άνοιγμα'}</button><button data-a="edit" data-id="${st.id}">Επεξεργασία</button><button class="ghost danger" data-a="del" data-id="${st.id}" aria-label="Διαγραφή">✕</button></div>`}
+    </div>`}).join('');
+  return topbar('Regularity')+cards+`<button class="add" data-a="new">+ Νέα ειδική</button>`;
+}
+function vEdit(){
+  const d=draft;
+  const rows=d.points.map((p,i)=>`<div class="ptrow"><span class="i">${i+1}</span>
+    <input type="number" inputmode="numeric" id="pm${i}" data-pi="${i}" data-k="m" value="${p.m}" aria-label="Μέτρα σημείου ${i+1}">
+    <input type="number" inputmode="decimal" id="ps${i}" data-pi="${i}" data-k="s" value="${p.s}" aria-label="Δευτερόλεπτα σημείου ${i+1}">
+    <input type="text" id="pc${i}" data-pi="${i}" data-k="c" value="${p.c?String(p.c).replace('.',','):''}" placeholder="0" aria-label="Διόρθωση σημείου ${i+1}" class="cin">
+    <button class="ghost danger" data-a="rmpt" data-i="${i}" aria-label="Αφαίρεση σημείου">✕</button></div>`).join('');
+  return topbar(d.isNew?'Νέα ειδική':'Επεξεργασία',true)+`
+  <div class="card">
+   <div class="field"><label class="label" for="ename">Όνομα</label><input id="ename" value="${esc(d.name)}"></div>
+   <div class="field"><span class="label">Ώρα εκκίνησης</span>${tIn('estart',d.start)}</div>
+  </div>
+  <div class="card">
+   <div class="ptrow"><span></span><span class="label">Μέτρα</span><span class="label">Δευτ.</span><span class="label">Διόρθ. s</span><span></span></div>
+   ${rows||'<p class="mute" style="margin:0">Δεν υπάρχουν σημεία ακόμα.</p>'}
+   <p class="mute" style="margin:0;font-size:14px">Διόρθωση: π.χ. <span class="num">-1,5</span> για να περάσεις 1,5 s νωρίτερα από τον ιδανικό χρόνο σε αυτό το σημείο, <span class="num">1,5</span> για αργότερα. Κενό = καμία.</p>
+   <button class="add" data-a="addpt">+ Σημείο</button>
+   <details><summary>Επικόλληση λίστας</summary>
+    <p class="mute" style="font-size:14px;margin:8px 0">Μία γραμμή ανά σημείο: μέτρα και δευτερόλεπτα, π.χ. <span class="num">400 40</span> (προαιρετικά και διόρθωση: <span class="num">400 40 -1.5</span>). Αντικαθιστά τα σημεία.</p>
+    <textarea id="bulk" placeholder="400 40&#10;800 60&#10;1500 115"></textarea>
+    <button data-a="bulk" style="margin-top:8px">Εφαρμογή λίστας</button></details>
+  </div>
+  <div class="row"><button class="ghost" data-a="back">Άκυρο</button><button class="primary" data-a="saveedit">Αποθήκευση</button></div>`;
+}
+function vRun(){
+  const st=stageOf(S.active);if(!st){S.view='list';return vList()}
+  const rows=st.points.map((p,i)=>{
+    const cls=i===st.idx?'cur':i<st.idx?'past':'';
+    const dl=st.pass[i]!=null?fmtDelta(st.pass[i]-target(st,i)):i<st.idx?'<span class="mute">αυτόμ.</span>':'';
+    return `<tr class="${cls}"><td class="num">${i+1}</td><td class="num">${p.m}</td><td class="num">${p.s}${corr(p)?`<br><span class="cbadge">${fmtC(corr(p))}</span>`:''}</td><td class="num">${corr(p)?hmst(target(st,i)):hms(new Date(target(st,i)))}</td><td>${dl}</td></tr>`}).join('');
+  return topbar(st.name,true)+`
+  <div class="startline"><div><div class="label">Εκκίνηση</div><div class="v" id="stv">${normT(st.start)}</div></div>
+   <button data-a="tgst" aria-expanded="${!!S.editStart}">Αλλαγή</button></div>
+  ${S.editStart?`<div class="card"><div class="row" style="align-items:center">${tIn('rstart',st.start)}<button class="primary" data-a="setstart">Εφαρμογή</button></div>   <p class="mute" style="margin:0;font-size:14px">Ο χρόνος ξαναϋπολογίζεται αμέσως, μαζί με τις αποκλίσεις στα σημεία που έχεις ήδη περάσει.</p></div>`:''}
+  <div class="hero" id="hero">
+   <div class="prebadge" id="prebadge" hidden>ΑΝΑΜΟΝΗ</div>
+   <div class="phase" id="phase"></div>
+   <div class="pt" id="ptinfo"></div>
+   <div class="count" id="count">--</div>
+   <div class="mute" id="tgt"></div>
+  </div>
+  <button class="primary next" data-a="next" id="nextbtn">NEXT</button>
+  <div class="row"><button data-a="prev">← Προηγούμενο</button><button data-a="edit" data-id="${st.id}">Σημεία</button><button data-a="snd">${S.snd==='voice'?'Ήχος: φωνή':S.snd==='beep'?'Ήχος: μπιπ':'Ήχος: όχι'}</button><button class="ghost danger" data-a="reset">Μηδενισμός</button></div>
+  ${S.confirmReset?`<div class="confirm">Μηδενισμός περασμάτων; <button class="danger" data-a="resetyes">Ναι</button><button data-a="resetno">Όχι</button></div>`:''}
+  <div class="tablebox"><table class="pts"><thead><tr><th>#</th><th>Μέτρα</th><th>Δευτ.</th><th>Ώρα</th><th>Απόκλ.</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p class="mute" style="font-size:13px;margin:0">Απόκλιση = πότε πάτησες NEXT σε σχέση με τον ιδανικό χρόνο. <span class="d-late">+ αργά</span>, <span class="d-early">− νωρίς</span>. Αν δεν πατήσεις NEXT, 10 s μετά την ιδανική ώρα περνάει μόνο του στο επόμενο σημείο («αυτόμ.»).</p>`;
+}
+function render(){
+  document.body.classList.remove('alert');
+  if(S.view==='edit'&&!draft)S.view=S.active&&stageOf(S.active)?'run':'list';
+  let v;
+  try{v=S.view==='edit'?vEdit():S.view==='run'?vRun():vList()}
+  catch(err){S.view='list';draft=null;try{v=vList()}catch(e2){S=seed();v=vList()}}
+  $('#app').innerHTML=v;tick();
+  if(S.view==='run')askWake();
+}
+
+/* ---------- tick ---------- */
+function tick(){
+  const c=$('#clk');if(c)c.textContent=hmst(now());
+  if(S.view!=='run')return;
+  const st=stageOf(S.active);if(!st)return;
+  const t=now(),s0=startMs(st),n=st.points.length;
+  const cnt=$('#count'),ph=$('#phase'),pi=$('#ptinfo'),tg=$('#tgt'),nb=$('#nextbtn');
+  if(!cnt)return;
+  let r,key;
+  if(st.idx<n&&t>=s0){let moved=false;
+    while(st.idx<n&&target(st,st.idx)-t<-10000){st.pass[st.idx]=null;st.idx++;moved=true}
+    if(moved){save();render();return}}
+  if(st.idx>=n){
+    $('#hero').classList.remove('alert','pre');document.body.classList.remove('alert');$('#prebadge').hidden=true;
+    ph.textContent='Τέλος ειδικής';pi.innerHTML='';cnt.textContent='✓';cnt.className='count';
+    tg.textContent=n?'Τελευταίο σημείο '+st.points[n-1].m+' m':'';
+    nb.disabled=false;nb.textContent='ΤΕΛΟΣ ΕΙΔΙΚΗΣ';nb.dataset.a='finish';return;
+  }
+  const p=st.points[st.idx];
+  const pre=t<s0;
+  const rp=target(st,st.idx)-t,alert=!pre&&rp>0&&rp<=10000;
+  $('#hero').classList.toggle('alert',alert);document.body.classList.toggle('alert',alert);
+  $('#hero').classList.toggle('pre',pre);$('#prebadge').hidden=!pre;
+  nb.disabled=pre;nb.textContent=pre?'ΠΕΡΙΜΕΝΕ ΕΚΚΙΝΗΣΗ':'NEXT';nb.dataset.a='next';
+  if(pre){
+    r=s0-t;key=st.id+':start';
+    ph.textContent='Εκκίνηση ειδικής σε';
+    pi.innerHTML=`<span class="mute">1ο σημείο: ${p.m} m στα ${p.s} s</span>`;
+    tg.innerHTML='ώρα εκκίνησης <span class="num">'+hms(new Date(s0))+'</span>';
+    cnt.innerHTML=bigCount(r);cnt.className='count';
+    beeps(key,r,true);return;
+  }else{
+    r=target(st,st.idx)-t;key=st.id+':'+st.idx;
+    ph.textContent='Σημείο '+(st.idx+1)+' / '+n+(r<0?' · καθυστέρηση':'');
+    pi.innerHTML=`<span><b>${p.m}</b> m</span><span>στα <b>${p.s}</b> s</span>${corr(p)?`<span class="cbadge">διόρθ. ${fmtC(corr(p))} s</span>`:''}`;
+    tg.innerHTML='ιδανική ώρα <span class="num">'+hmst(target(st,st.idx))+'</span>';
+  }
+  cnt.innerHTML=bigCount(r);
+  cnt.className='count'+(r<0?' late':'');
+  beeps(key,r);
+}
+function beeps(key,r,isStart){
+  voiceTick(key,r);
+  if(lastBeep.key!==key){
+    if(lastBeep.key.endsWith(':start')&&key.startsWith(lastBeep.key.slice(0,-5))&&lastBeep.sec===1)beep(520,0.9);
+    lastBeep={key,sec:null}}
+  const sec=r>0?Math.ceil(r/1000):0;
+  if(sec===lastBeep.sec)return;
+  const prev=lastBeep.sec;lastBeep.sec=sec;
+  if(prev===null)return;               // no beep on entering a point
+  const v=S.snd==='voice';
+  if(isStart){
+    if(sec>=1&&sec<=10&&!v)beep(520,0.12);
+    else if(sec===0&&r>-500)beep(520,0.9);
+    return;}
+  if(v){if(sec===0&&r>-500)beep(1320,0.35);return}
+  if(sec>=4&&sec<=10)beep(700,0.08);
+  else if(sec>=1&&sec<=3)beep(880,0.12);
+  else if(sec===0&&r>-500)beep(1320,0.35);
+}
+const WORDS=['μηδέν','ένα','δύο','τρία','τέσσερα','πέντε','έξι','εφτά','οχτώ','εννιά','δέκα'];
+const LEAD=200; // speech starts slightly early so the word lands on the second
+let lastSay={key:'',v:null},voiceEl=null,voiceReady=false;
+function pickVoice(){try{const vs=speechSynthesis.getVoices();voiceEl=vs.find(v=>/^el/i.test(v.lang))||null}catch(e){}}
+try{speechSynthesis.onvoiceschanged=pickVoice;pickVoice()}catch(e){}
+function say(txt){if(S.snd!=='voice')return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(txt);u.lang='el-GR';if(voiceEl)u.voice=voiceEl;u.rate=1.3;u.volume=1;speechSynthesis.speak(u)}catch(e){}}
+function voiceTick(key,r){
+  if(S.snd!=='voice')return;
+  const rv=r-LEAD,v=rv>0?Math.ceil(rv/1000):0;
+  if(lastSay.key!==key){lastSay={key,v};return}
+  if(v===lastSay.v)return;lastSay.v=v;
+  if(v<=10&&r>-500)say(WORDS[v]);
+}
+let ac=null;
+function unlockAudio(){try{if(!ac)ac=new(window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume()}catch(e){}
+  if(!voiceReady){voiceReady=true;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(e){}}}
+function beep(f,d){if(S.snd==='off'||!ac)return;try{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type='square';
+  g.gain.setValueAtTime(0.12,ac.currentTime);g.gain.exponentialRampToValueAtTime(0.0001,ac.currentTime+d);
+  o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+async function askWake(){try{if(!wake&&navigator.wakeLock&&document.visibilityState==='visible'){wake=await navigator.wakeLock.request('screen');wake.addEventListener('release',()=>wake=null)}}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(S.view==='run')askWake()});
+
+/* ---------- sync sheet ---------- */
+function openSync(){
+  const sh=$('#sheet');sh.hidden=false;
+  sh.innerHTML=`<div class="sheet" data-a="closesync"><div class="in" data-stop="1">
+   <h3>Συγχρονισμός με time.is</h3>
+   <p>Άνοιξε το <a href="https://time.is" target="_blank" rel="noopener">time.is</a> σε άλλη συσκευή ή καρτέλα. Πάτα το κουμπί ακριβώς τη στιγμή που τα δευτερόλεπτα γίνονται <b class="num">:00</b>.</p>
+   <div class="field"><span class="label">Ώρα που θα δείξει το time.is</span>
+    ${tIn('synct',hms(new Date(now()+20000)))}</div>
+   <button class="primary tap" data-a="settime">Ορισμός ώρας τώρα</button>
+   <p>Γράψε μια ώρα λίγο μπροστά, π.χ. <span class="num">08:50:00</span>, και πάτα το κουμπί τη στιγμή που το time.is δείχνει ακριβώς αυτή την ώρα.</p>
+   <button data-a="tap">Γρήγορα: τώρα είναι :00 (οποιοδήποτε λεπτό)</button>
+   <div class="offs" id="offv">${((S.offset||0)/1000).toFixed(2)} s</div>
+   <div class="nudge"><button data-a="off" data-v="-100">−0.1</button><button data-a="off" data-v="-10">−0.01</button><button data-a="off" data-v="10">+0.01</button><button data-a="off" data-v="100">+0.1</button></div>
+   <p>Ρολόι εφαρμογής: <span class="num" id="clk2"></span></p>
+   <div class="row"><button class="ghost" data-a="off0">Μηδενισμός</button><button data-a="closesync">Τέλος</button></div>
+  </div></div>`;
+}
+function updOff(){save();const o=$('#offv');if(o)o.textContent=((S.offset||0)/1000).toFixed(2)+' s';const t=$('#offtxt');if(t)t.textContent=offsetTxt()}
+
+/* ---------- events ---------- */
+document.addEventListener('pointerdown',unlockAudio,{passive:true});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;
+  if(b.dataset.a==='closesync'&&e.target.closest('[data-stop]')&&b.classList.contains('sheet'))return;
+  const a=b.dataset.a,id=b.dataset.id;
+  const st=stageOf(S.active);
+  switch(a){
+    case 'back':S.view=(S.view==='edit'&&draft&&draft.returnTo==='run'&&stageOf(S.active))?'run':'list';S.editStart=false;S.confirmReset=false;draft=null;break;
+    case 'new':draft={isNew:true,id:uid(),name:'ΕΙ '+(S.stages.length+1),start:hms(new Date(now()+10*60000)).slice(0,5)+':00',points:[{m:'',s:''}]};S.view='edit';break;
+    case 'edit':{const s=stageOf(id);draft=JSON.parse(JSON.stringify(s));draft.points.forEach((p,i)=>{if(s.pass[i]!=null)p.pt=s.pass[i]});draft.returnTo=S.view==='run'?'run':'list';if(draft.returnTo==='run')S.active=id;S.view='edit';break}
+    case 'run':S.active=id;S.view='run';S.editStart=false;S.confirmReset=false;break;
+    case 'del':delId=id;break;
+    case 'delno':delId=null;break;
+    case 'delyes':S.stages=S.stages.filter(s=>s.id!==id);delId=null;break;
+    case 'addpt':draft.points.push({m:'',s:''});render();const l=draft.points.length-1;const inp=$('#pm'+l);if(inp)inp.focus();return;
+    case 'rmpt':draft.points.splice(+b.dataset.i,1);break;
+    case 'bulk':{const pts=$('#bulk').value.split(/\n/).map(x=>x.trim().split(/[\s,;\t]+/).map(Number)).filter(x=>x.length>=2&&!isNaN(x[0])&&!isNaN(x[1])).map(x=>({m:x[0],s:x[1],c:x[2]&&!isNaN(x[2])?x[2]:''}));
+      if(pts.length)draft.points=pts;break}
+    case 'saveedit':{
+      draft.name=$('#ename').value.trim()||'Ειδική';draft.start=tRead('estart');
+      const sorted=draft.points.filter(p=>p.m!==''&&p.s!=='').map(p=>({m:Number(p.m),s:Number(p.s),c:parseC(p.c),pt:p.pt})).sort((a,b)=>a.m-b.m||a.s-b.s);
+      const pts=sorted.map(p=>p.c?{m:p.m,s:p.s,c:p.c}:{m:p.m,s:p.s});
+      let last=-1;sorted.forEach((p,i)=>{if(p.pt!=null)last=i});
+      const ex=stageOf(draft.id);
+      if(ex){Object.assign(ex,{name:draft.name,start:draft.start,points:pts,pass:sorted.slice(0,last+1).map(p=>p.pt??null),idx:last+1})}
+      else{S.stages.push({id:draft.id,name:draft.name,start:draft.start,points:pts,idx:0,pass:[]})}
+      S.view=(draft.returnTo==='run'&&ex)?'run':'list';draft=null;break}
+    case 'next':if(st&&st.idx<st.points.length){st.pass[st.idx]=now();st.idx++}break;
+    case 'finish':if(st){st.closed=true;S.stages=S.stages.filter(x=>x!==st).concat(st)}
+      S.view='list';S.active=null;S.editStart=false;S.confirmReset=false;window.scrollTo(0,0);break;
+    case 'prev':if(st&&st.idx>0){st.idx--;st.pass.length=st.idx}break;
+    case 'reset':S.confirmReset=true;break;
+    case 'resetno':S.confirmReset=false;break;
+    case 'resetyes':if(st){st.idx=0;st.pass=[];st.closed=false}S.confirmReset=false;break;
+    case 'tgst':S.editStart=!S.editStart;break;
+    case 'nd':if(st){const ms=startMs(st)+Number(b.dataset.v)*1000;st.start=hms(new Date(ms))}break;
+    case 'snd':S.snd=S.snd==='voice'?'beep':S.snd==='beep'?'off':'voice';if(S.snd==='voice')say('δέκα');break;
+    case 'sync':openSync();return;
+    case 'closesync':if(e.target.closest('.in')&&!b.closest('.in'))return;$('#sheet').hidden=true;$('#sheet').innerHTML='';return;
+    case 'settime':{const t=Date.now();
+      const [h,m,s]=tRead('synct').split(':').map(Number);let best=null;
+      for(const dd of [-1,0,1]){const d=new Date(t);d.setDate(d.getDate()+dd);d.setHours(h,m,s,0);const o=d.getTime()-t;if(best===null||Math.abs(o)<Math.abs(best))best=o}
+      S.offset=best;updOff();return}
+    case 'setstart':if(st){st.start=tRead('rstart')}S.editStart=false;break;
+    case 'tap':{const t=Date.now();S.offset=Math.round(t/60000)*60000-t;updOff();return}
+    case 'off':S.offset=(S.offset||0)+Number(b.dataset.v);updOff();return;
+    case 'off0':S.offset=0;updOff();return;
+  }
+  save();render();
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.pi!=null&&draft){draft.points[+t.dataset.pi][t.dataset.k]=t.value}
+  if(t.id==='ename'&&draft)draft.name=t.value;
+  if(t.id&&t.id.startsWith('estart_')&&draft)draft.start=tRead('estart');
+  if(t.classList&&t.classList.contains('tseg')){t.value=t.value.replace(/\D/g,'').slice(0,2);
+    if(t.value.length===2&&t.dataset.tnext){const n=$('#'+t.dataset.tnext);if(n){n.focus();n.select()}}}
+});
+document.addEventListener('focusin',e=>{if(e.target.classList&&e.target.classList.contains('tseg'))setTimeout(()=>e.target.select(),0)});
+
+load();S.editStart=false;S.confirmReset=false;render();
+setInterval(()=>{tick();const c2=$('#clk2');if(c2)c2.textContent=hmst(now())},50);
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
+</script>
+</body>
+</html>
