@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Regularity">
 <meta name="theme-color" content="#0f1319">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}body{margin:0}</style>
+<style>:root{padding-top:max(env(safe-area-inset-top,0px),20px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}body{margin:0}</style>
 <title>Regularity Χρονόμετρο</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@400;500;600;700&family=Fira+Mono:wght@500&display=swap">
@@ -25,7 +25,7 @@
   color-scheme:dark;
 }
 html,body{background:var(--bg);color:var(--fg)}
-body{font-family:var(--f-ui);font-size:17px;padding-inline:16px;padding-block:8px 24px;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--f-ui);font-size:17px;padding-inline:16px;padding-block:16px 24px;-webkit-tap-highlight-color:transparent}
 *{box-sizing:border-box}
 .wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
 button{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;touch-action:manipulation}
