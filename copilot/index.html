@@ -1,5 +1,5 @@
 <title>Regularity Copilot</title>
-<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Co-driver"><meta name="theme-color" content="#0B0E12"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Co-driver"><meta name="theme-color" content="#0B0E12"><script>window.NO_SIM=1</script><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap">
 <style>
@@ -607,12 +607,16 @@ const sgn=v=>v>0?'+':v<0?MINUS:'';
 const DEF={f1:0.43404950,f2:0.43369565,fGps:1,gpsMin:2,gpsAcc:25,source:'sim',sensMode:'avg',offset:0,day:false,snd:'voice',
   tol:0.3,passMode:'auto',navView:'auto',layout:'auto',autoZero:true,rb:{sec:1,off:0},marks:[],calHist:[],stages:[],active:null};
 let S;
+const LITE=!!window.NO_SIM;  // phone/GitHub build: real GPS only, no simulator, no example stages
 function load(){
   let v2=null;try{v2=JSON.parse(localStorage.getItem('regapp.v2'));}catch(e){}
-  if(v2&&Array.isArray(v2.stages)){S=Object.assign({},DEF,v2);if(S.stages.every(x=>x.demo))S.stages=[];return;}  // refresh example stages
+  if(v2&&Array.isArray(v2.stages)){S=Object.assign({},DEF,v2);if(S.stages.every(x=>x.demo))S.stages=[];}else{
+  // refresh example stages
   S=Object.assign({},DEF);
   let v1=null;try{v1=JSON.parse(localStorage.getItem('regapp.v1'));}catch(e){}
   if(v1){for(const k of ['f1','f2','fGps','gpsMin','gpsAcc','source','sensMode','day','tol','rb','marks','calHist'])if(v1[k]!=null)S[k]=v1[k];if(v1.clockOffset)S.offset=v1.clockOffset*1000;}
+  }
+  if(LITE){if(S.source==='sim')S.source='gps';S.stages=S.stages.filter(x=>!x.demo);}
 }
 function save(){try{localStorage.setItem('regapp.v2',JSON.stringify(S));}catch(e){}}
 load();
@@ -1190,7 +1194,8 @@ $('clockBtn').onclick=()=>showTab('set');
 async function wake(){try{if('wakeLock' in navigator)await navigator.wakeLock.request('screen');}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)wake();});wake();
 
-/* ---------- boot: two example stages so the app opens working ---------- */
+/* ---------- boot: two example stages so the app opens working (one empty stage in the phone version) ---------- */
+if(LITE){$('source').querySelector('[value=sim]').remove();if(!S.stages.length){const e=newStage('points','Ειδική 1');S.stages=[e];S.active=e.id;}}
 if(!S.stages.length){
   const a=newStage('speed','Ειδική 1 · ΜΩΤ (παράδειγμα)');a.segs=parseSegs('0 1500 43 1500 3780 50 3780 8900 42 8900 9200 30 9200 12690 48');a.demo=true;
   a.rb={sec:1,off:0};
