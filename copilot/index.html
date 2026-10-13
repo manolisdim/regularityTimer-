@@ -26,7 +26,7 @@
 }
 html,body{height:100%}
 [hidden]{display:none!important}
-body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;-webkit-tap-highlight-color:transparent}
 *{box-sizing:border-box}
 button{font-family:inherit;cursor:pointer;color:inherit;touch-action:manipulation}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
@@ -219,7 +219,7 @@ table input{min-width:84px}
 }
 /* ---------- phone layout: only what the co-driver needs, no scrolling ---------- */
 .menubtn,.pagebtn{display:none}
-:root.phone .app{padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));gap:8px;min-height:100dvh}
+:root.phone .app{padding:calc(8px + env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));gap:8px;min-height:100dvh}
 :root.phone.forced .app{max-width:430px;margin:0 auto;border-inline:1px solid var(--line)}
 :root.phone .top{flex-wrap:nowrap;gap:8px}
 :root.phone .brand{flex-direction:column;align-items:flex-start;gap:0;min-width:0;flex:1}
@@ -289,10 +289,14 @@ table input{min-width:84px}
 :root.phone.land.more #v-nav{display:flex}
 :root.phone.land .big{font-size:62px}
 :root.phone.land .mbig{font-size:34px}
-:root.phone.land .controls button{min-height:58px;font-size:24px}
+:root.phone.land .controls button{min-height:50px;font-size:22px}
 :root.phone.land .dev{padding:8px 14px 10px}
 :root.phone.land .mzero{min-height:38px}
-:root.phone.land .app{min-height:0}
+:root.phone.land .app{min-height:0;height:100dvh;padding-top:calc(6px + env(safe-area-inset-top,0px));padding-bottom:calc(6px + env(safe-area-inset-bottom,0px))}
+:root.phone.land:not(.more) #v-nav:not([hidden]){flex:1;min-height:0;align-content:stretch;grid-template-rows:minmax(0,1fr) minmax(0,1fr) auto}
+:root.phone.land #dev{justify-content:space-around}
+:root.phone.land #tulStack,:root.phone.land #tulStack>.card{min-height:0}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
