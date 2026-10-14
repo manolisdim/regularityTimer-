@@ -221,6 +221,8 @@ table input{min-width:84px}
 }
 /* ---------- navigation focus: tulips big, timing small; timing takes over in the last 15 s ---------- */
 .navgrid,#v-nav{transition:grid-template-columns .35s ease}
+:root:not(.phone).navfocus:not(.timefocus) .titem.compact .tdist{font-size:56px}
+:root:not(.phone).navfocus:not(.timefocus) .titem.compact .paper{max-width:440px;justify-self:end}
 :root:not(.phone).navfocus:not(.timefocus) .navgrid{grid-template-columns:minmax(0,.7fr) minmax(0,1.6fr)}
 :root.navfocus:not(.timefocus) .dev{min-height:0;padding:16px 18px}
 :root.navfocus:not(.timefocus) .big{font-size:clamp(56px,7vw,110px)}
@@ -312,7 +314,11 @@ table input{min-width:84px}
 :root.phone.land.navfocus:not(.timefocus) .big{font-size:40px}
 :root.phone.land.navfocus:not(.timefocus) .mbig{font-size:24px}
 :root.phone.land.navfocus:not(.timefocus) .tdist{font-size:44px}
-:root.phone.land.navfocus:not(.timefocus) .titem .ti-body{display:flex;flex-direction:column;align-items:stretch;gap:6px}
+:root.phone.land.navfocus:not(.timefocus):not(.stack2) .titem .ti-body{display:flex;flex-direction:column;align-items:stretch;gap:6px}
+:root.phone.land.navfocus:not(.timefocus).stack2 .titem .ti-body{grid-template-columns:auto minmax(0,1fr)}
+:root.phone.land.navfocus:not(.timefocus).stack2 .titem .tdist{font-size:34px}
+:root.phone.land.navfocus:not(.timefocus).stack2 .titem .paper{max-width:min(100%,calc((100dvh - 150px) * 1.35));justify-self:end}
+:root.phone.land.navfocus:not(.timefocus).stack2 .titem{padding:4px 8px;gap:4px}
 :root.phone:not(.land).navfocus:not(.timefocus) .navgrid{grid-template-rows:auto minmax(0,1fr)}
 :root.phone:not(.land).navfocus:not(.timefocus) .big{font-size:min(15vw,8vh)}
 :root.phone:not(.land).navfocus:not(.timefocus) .tstack{flex:1}
