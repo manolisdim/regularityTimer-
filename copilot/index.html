@@ -552,7 +552,7 @@ table input{min-width:84px}
             <div class="field" style="flex:1;min-width:150px"><label for="gpsMin">GPS: ελάχιστη ταχύτητα (km/h)</label><input id="gpsMin" class="num" inputmode="decimal"></div>
             <div class="field" style="flex:1;min-width:150px"><label for="gpsAcc">GPS: μέγιστο σφάλμα θέσης (m)</label><input id="gpsAcc" class="num" inputmode="decimal"></div>
           </div>
-          <p class="note">Με GPS η απόσταση βγαίνει από την ταχύτητα που μετράει ο δέκτης και βαθμονομείται όπως οι αισθητήρες. Κάτω από την ελάχιστη ταχύτητα δεν προσθέτει μέτρα. Η σύνδεση με το πραγματικό box (192.168.4.1, θύρα 11912) έρχεται με την έκδοση APK.</p>
+          <p class="note">Με GPS η απόσταση βγαίνει από την ταχύτητα που μετράει ο δέκτης και βαθμονομείται όπως οι αισθητήρες. Κάτω από την ελάχιστη ταχύτητα δεν προσθέτει μέτρα. Η σύνδεση με το πραγματικό box (192.168.4.1, θύρα 11912) έρχεται με την έκδοση APK. <b>Έκδοση εφαρμογής: v2 (GPS με διόρθωση κλίσης)</b></p>
         </div>
       </div>
       <div class="stack">
@@ -666,6 +666,8 @@ function onFix(pos){
         G.v=vv;L.speed=G.moving?vv*3.6:0;}}}
   G.last={lat:c.latitude,lon:c.longitude,t,v};G.fixAt=performance.now();
 }
+function gpsReady(){return !!(G.goodSince&&G.last&&G.last.t-G.goodSince>=10000&&performance.now()-G.fixAt<3000);}
+function gpsStatus(){if(G.err)return G.err;if(performance.now()-G.fixAt>=3000||G.acc==null)return 'GPS: αναζήτηση…';return (gpsReady()?'GPS έτοιμο':'GPS σταθεροποιείται')+' · ακρίβεια ±'+Math.round(G.acc)+' m';}
 function gpsRaw(){const extra=G.moving?G.v*Math.min(1,(performance.now()-G.fixAt)/1000):0;G.shown=Math.max(G.shown,G.dist+extra);return G.shown;}
 function startGps(){if(G.watch!=null)return;if(!('geolocation' in navigator)){G.err='Η συσκευή δεν έχει GPS';return;}
   try{G.watch=navigator.geolocation.watchPosition(onFix,e=>{G.err=e.code===1?'Δεν δόθηκε άδεια για GPS':'GPS χωρίς σήμα';},{enableHighAccuracy:true,maximumAge:0,timeout:15000});}catch(e){G.err='Δεν δόθηκε άδεια για GPS';}}
@@ -979,7 +981,7 @@ function render(force){
   $('clock').innerHTML=hms(n0)+'<em>.'+Math.floor(new Date(n0).getMilliseconds()/100)+'</em>';
   const live=performance.now()-L.lastMsg<1500;
   if(S.source==='gps'){const fresh=performance.now()-G.fixAt<3000,good=fresh&&G.acc!=null&&G.acc<=(+S.gpsAcc||25);
-    $('dBox').className='dot '+(good?'on':fresh?'warn':'off');$('tBox').textContent=G.err?G.err:good?(G.goodSince&&G.last&&G.last.t-G.goodSince>=10000?'GPS έτοιμο ±':'GPS σταθεροποιείται ±')+Math.round(G.acc)+' m':fresh?'GPS αδύναμο ±'+Math.round(G.acc)+' m':'GPS: αναζήτηση…';}
+    $('dBox').className='dot '+(good&&gpsReady()?'on':fresh?'warn':'off');$('tBox').textContent=G.err?G.err:good?(G.goodSince&&G.last&&G.last.t-G.goodSince>=10000?'GPS έτοιμο ±':'GPS σταθεροποιείται ±')+Math.round(G.acc)+' m':fresh?'GPS αδύναμο ±'+Math.round(G.acc)+' m':'GPS: αναζήτηση…';}
   else{$('dBox').className='dot '+(live?'on':'off');$('tBox').textContent=live?(S.source==='udp'?'Box':'Box (προσομ.)'):'Box χωρίς σήμα';}
   $('dClock').className='dot '+(S.offset?'warn':'on');$('tClock').textContent=S.offset?'Ώρα '+sgn(S.offset)+fmt(Math.abs(S.offset)/1000,2)+' s':'Ώρα συσκευής';
   $('simBar').hidden=S.source!=='sim';
@@ -1152,7 +1154,7 @@ $('calDone').onclick=()=>{
     S.f1=km*1000/da;S.f2=km*1000/db;S.calHist.unshift(hms(now())+' · '+fmt(km,3)+' km · S1 '+S.f1.toFixed(5)+' · S2 '+S.f2.toFixed(5));}
   S.calHist=S.calHist.slice(0,10);save();showF();L.cal=null;toast('Βαθμονόμηση αποθηκεύτηκε');
 };
-function renderCal(){if(!L.cal){$('calMeters').textContent='—';return;}
+function renderCal(){if(!L.cal){$('calMeters').textContent='—';$('calPulses').textContent=(S.source==='gps'?gpsStatus()+' · ':'')+'Πάτα «Αρχή μέτρησης».';return;}
   if(S.source==='gps'){const dg=gpsRaw()-L.cal.g;$('calMeters').textContent=fmt(dg*S.fGps/1000,3)+' km';$('calPulses').textContent='GPS χωρίς διόρθωση: '+fmt(dg/1000,3)+' km'+(G.acc!=null?' · σφάλμα ±'+Math.round(G.acc)+' m':'');return;}
   const da=L.a-L.cal.a,db=L.b-L.cal.b;$('calMeters').textContent=fmt(((da*S.f1+db*S.f2)/2)/1000,3)+' km';$('calPulses').textContent='Παλμοί: S1 '+da+' · S2 '+db;}
 
