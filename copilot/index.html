@@ -647,15 +647,23 @@ const BUTTONS={btUp:+1,btDown:-1,btUp10:+10,btDown10:-10};
 
 /* ---------- distance sources ---------- */
 const L={a:0,b:0,lastMsg:0,a0:0,b0:0,corr:0,speed:0,hist:[],frozen:null,cal:null,prevX:0,prevT:0};
-const G={dist:0,d0:0,shown:0,last:null,acc:null,v:0,moving:false,fixAt:0,watch:null,err:null};
+const G={dist:0,d0:0,shown:0,last:null,acc:null,v:0,moving:false,fixAt:0,watch:null,err:null,alt:null,goodSince:0};
 function hav(a,b,c,d){const R=6371000,r=Math.PI/180,x=(c-a)*r,y=(d-b)*r;const h=Math.sin(x/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
 function onFix(pos){
   const c=pos.coords,t=pos.timestamp||Date.now();G.acc=c.accuracy;G.err=null;
-  if(!(c.accuracy<=(+S.gpsAcc||25))){G.moving=false;G.last=null;return;}
-  const v=(c.speed!=null&&isFinite(c.speed))?c.speed:null;
+  // "GPS ready": accuracy has stayed at or under 6 m for 10 s
+  if(c.accuracy<=6){if(!G.goodSince)G.goodSince=t;}else G.goodSince=0;
+  if(!(c.accuracy<=(+S.gpsAcc||25))){G.moving=false;return;} // keep G.last so the gap is bridged by the next good fix
+  if(G.last&&t<=G.last.t)return; // iOS sometimes repeats the same fix
+  const v=(c.speed!=null&&isFinite(c.speed)&&c.speed>=0)?c.speed:null;
+  // smoothed altitude for slope correction
+  let dz=0;const altOk=c.altitude!=null&&isFinite(c.altitude)&&(c.altitudeAccuracy==null||c.altitudeAccuracy<=30);
+  if(altOk){const pa=G.alt;G.alt=pa==null?c.altitude:pa+0.25*(c.altitude-pa);dz=pa==null?0:G.alt-pa;}
   if(G.last){const dt=(t-G.last.t)/1000;
-    if(dt>0&&dt<10){const dp=hav(G.last.lat,G.last.lon,c.latitude,c.longitude);const vv=v!=null?v:dp/dt;
-      if(vv*3.6<250){G.moving=vv*3.6>=(+S.gpsMin||2);if(G.moving)G.dist+=(v!=null&&G.last.v!=null)?(v+G.last.v)/2*dt:dp;G.v=vv;L.speed=G.moving?vv*3.6:0;}}}
+    if(dt>0&&dt<30){const dp=hav(G.last.lat,G.last.lon,c.latitude,c.longitude);const vv=v!=null?v:dp/dt;
+      if(vv*3.6<250){G.moving=vv*3.6>=(+S.gpsMin||0);
+        if(G.moving){const dh=(v!=null&&G.last.v!=null&&dt<=5)?(v+G.last.v)/2*dt:dp;G.dist+=altOk?Math.sqrt(dh*dh+dz*dz):dh;}
+        G.v=vv;L.speed=G.moving?vv*3.6:0;}}}
   G.last={lat:c.latitude,lon:c.longitude,t,v};G.fixAt=performance.now();
 }
 function gpsRaw(){const extra=G.moving?G.v*Math.min(1,(performance.now()-G.fixAt)/1000):0;G.shown=Math.max(G.shown,G.dist+extra);return G.shown;}
@@ -971,7 +979,7 @@ function render(force){
   $('clock').innerHTML=hms(n0)+'<em>.'+Math.floor(new Date(n0).getMilliseconds()/100)+'</em>';
   const live=performance.now()-L.lastMsg<1500;
   if(S.source==='gps'){const fresh=performance.now()-G.fixAt<3000,good=fresh&&G.acc!=null&&G.acc<=(+S.gpsAcc||25);
-    $('dBox').className='dot '+(good?'on':fresh?'warn':'off');$('tBox').textContent=G.err?G.err:good?'GPS ±'+Math.round(G.acc)+' m':fresh?'GPS αδύναμο ±'+Math.round(G.acc)+' m':'GPS: αναζήτηση…';}
+    $('dBox').className='dot '+(good?'on':fresh?'warn':'off');$('tBox').textContent=G.err?G.err:good?(G.goodSince&&G.last&&G.last.t-G.goodSince>=10000?'GPS έτοιμο ±':'GPS σταθεροποιείται ±')+Math.round(G.acc)+' m':fresh?'GPS αδύναμο ±'+Math.round(G.acc)+' m':'GPS: αναζήτηση…';}
   else{$('dBox').className='dot '+(live?'on':'off');$('tBox').textContent=live?(S.source==='udp'?'Box':'Box (προσομ.)'):'Box χωρίς σήμα';}
   $('dClock').className='dot '+(S.offset?'warn':'on');$('tClock').textContent=S.offset?'Ώρα '+sgn(S.offset)+fmt(Math.abs(S.offset)/1000,2)+' s':'Ώρα συσκευής';
   $('simBar').hidden=S.source!=='sim';
