@@ -598,7 +598,7 @@ table input{min-width:84px}
           <label class="check"><input type="checkbox" id="autoZero"> Αυτόματος μηδενισμός απόστασης στην εκκίνηση</label>
           <label class="check"><input type="checkbox" id="autoCal"> GPS: φινίρισμα συντελεστή στις τουλίπες (μόνο σε τμήματα &gt;1 km χωρίς φουρκέτες και αργά κομμάτια)</label>
           <div class="field"><label for="passMode">Πέρασμα σημείου (χρόνος ανά σημείο)</label>
-            <select id="passMode"><option value="auto">Αυτόματα από την απόσταση</option><option value="manual">Με το κουμπί NEXT</option></select></div>
+            <select id="passMode"><option value="auto">Αυτόματα από την απόσταση</option><option value="manual">Με το κουμπί NEXT (εμφανίζεται στην κύρια οθόνη)</option></select></div>
           <p class="note">Με «Αυτόματα» το πέρασμα καταγράφεται τη στιγμή που η απόσταση φτάνει το σημείο, και το NEXT μένει για χειροκίνητο πέρασμα. Με «NEXT» το καταγράφεις εσύ, και αν δεν το πατήσεις, 10 s μετά την ιδανική ώρα περνάει μόνο του στο επόμενο.</p>
           <div class="field" style="max-width:220px"><label for="tol">Όριο «στο χρόνο» (s)</label><input id="tol" class="num" inputmode="decimal"></div>
           <label class="check"><input type="checkbox" id="dayMode"> Λειτουργία ημέρας (φωτεινή)</label>
@@ -1066,7 +1066,7 @@ function render(force){
   $('stageInfo').textContent=!ss.n?'Χωρίς '+(pm?'σημεία':'τμήματα'):ss.done?'Τέλος ειδικής':pm?'Σημείο '+ss.k+' από '+ss.n:'Τμήμα '+ss.k+' από '+ss.n+' · ΜΩΤ '+ss.next.v;
   const view=S.navView==='auto'?(pm?'timing':'speed'):S.navView;
   autoStart(ss);
-  $('btnNext').hidden=!pm;$('mRow').hidden=view!=='timing';
+  $('btnNext').hidden=!pm||S.passMode!=='manual';$('mRow').hidden=view!=='timing';
   $('mBig').innerHTML=Math.round(L.frozen?L.frozen.snap:ss.x)+'<small> m</small>';$('btnPrev').hidden=!pm;
   $('tiles').hidden=view==='timing';$('nextCard').hidden=view==='timing';$('measCard').hidden=view!=='timing';$('btnPrev2').hidden=!pm;
   renderStack(st,view);
