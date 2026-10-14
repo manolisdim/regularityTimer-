@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>GPS Test</title>
+<style>
+:root{--bg:#0d0f12;--card:#171a1f;--line:#262a31;--fg:#e9edf2;--mut:#8b94a1;--acc:#ffb020;--good:#3ecf8e;--bad:#ff5d5d;--blue:#6fb3ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px -apple-system,system-ui,sans-serif;padding:max(12px,env(safe-area-inset-top)) 12px calc(16px + env(safe-area-inset-bottom))}
+h1{font-size:13px;margin:0 0 10px;color:var(--mut);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+h2{font-size:13px;margin:18px 0 6px;color:var(--mut);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.status{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--mut)}
+.pill b{color:var(--fg);font-variant-numeric:tabular-nums}
+.grid{display:grid;gap:6px}
+.algo{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center}
+.algo .n{font-size:12px;color:var(--mut)}
+.algo .n b{color:var(--fg);display:block;font-size:14px}
+.algo .v{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+.algo.main{border-color:var(--acc)} .algo.main .v{color:var(--acc)}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+button{font:inherit;font-weight:700;border-radius:12px;padding:15px;background:var(--card);color:var(--fg);border:1px solid var(--line)}
+button.go{background:var(--good);color:#04110a;border:0}
+button.stop{background:var(--bad);color:#fff;border:0}
+button.mark{background:var(--acc);color:#1a1200;border:0;grid-column:1/-1;font-size:20px;padding:20px}
+button:disabled{opacity:.35}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 4px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mut);font-weight:600}
+td.pos{color:var(--bad)} td.neg{color:var(--blue)} tfoot td{font-weight:700}
+.row{display:flex;gap:8px;align-items:center;margin:10px 0;color:var(--mut);font-size:13px}
+input{font:inherit;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;width:100px}
+.note{color:var(--mut);font-size:12px;line-height:1.55}
+.note b{color:var(--fg)}
+</style>
+</head>
+<body>
+<h1>Δοκιμή απόστασης GPS</h1>
+<div class="status">
+  <span class="pill">Ακρίβεια <b id="acc">–</b></span>
+  <span class="pill">Ταχύτητα <b id="spd">–</b></span>
+  <span class="pill">Σήματα <b id="cnt">0</b></span>
+  <span class="pill">Ρυθμός <b id="rate">–</b></span>
+  <span class="pill" id="errp" style="display:none;color:var(--bad)"></span>
+</div>
+
+<div class="grid">
+  <div class="algo"><div class="n">A<b>Ωμό GPS</b></div><div class="v" id="vA">0</div></div>
+  <div class="algo"><div class="n">B<b>Φιλτραρισμένο</b></div><div class="v" id="vB">0</div></div>
+  <div class="algo"><div class="n">C<b>Ταχύτητα Doppler</b></div><div class="v" id="vC">0</div></div>
+  <div class="algo main"><div class="n">D<b>Doppler + κλίση</b></div><div class="v" id="vD">0</div></div>
+  <div class="algo"><div class="n">E<b>Καμπύλη (spline)</b></div><div class="v" id="vE">0</div></div>
+</div>
+
+<div class="btns">
+  <button class="go" id="bStart">Έναρξη</button>
+  <button class="stop" id="bStop" disabled>Διακοπή</button>
+  <button class="mark" id="bMark" disabled>Σημάδι (ένδειξη Rabbit)</button>
+  <button id="bExport">Εξαγωγή CSV</button>
+  <button id="bClear">Διαγραφή</button>
+</div>
+
+<div class="row">Συντελεστής <input id="factor" inputmode="decimal" value="1.000"></div>
+
+<h2>Σφάλμα ανά τμήμα (m) — μετά από διόρθωση στο tulip</h2>
+<div class="tw"><table>
+  <thead><tr><th>Rabbit</th><th>°/km</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr></thead>
+  <tbody id="tb"></tbody>
+  <tfoot id="tf"></tfoot>
+</table></div>
+
+<p class="note">
+<b>Πώς τη χρησιμοποιείς:</b> μηδένισε το Rabbit και πάτα <b>Έναρξη</b> στο ίδιο σημείο. Η οθόνη μένει ανοιχτή και η σελίδα μπροστά (το iPhone σταματάει το GPS όταν κλειδώνει). Ο συνοδηγός πατάει <b>Σημάδι</b> σε 6–10 σημεία, στις στροφές και στην ευθεία, και γράφει τα μέτρα του Rabbit. Στο τέλος πάτα <b>Εξαγωγή CSV</b> και στείλε μου το αρχείο.<br>
+Ο πίνακας δείχνει πόσα μέτρα έχασε ή κέρδισε κάθε μέθοδος σε κάθε τμήμα (κόκκινο = παραπάνω, μπλε = λιγότερα). Η στήλη °/km δείχνει πόσο στριφογυριστό ήταν το τμήμα. Η καταγραφή αποθηκεύεται αυτόματα.
+</p>
+
+<script>
+// ===ENGINE START===
+const R=6371008.8, rad=Math.PI/180, MAX_ACC=25, STOP=0.8;
+function hav(a,b){const dLat=(b.lat-a.lat)*rad,dLon=(b.lon-a.lon)*rad;const s=Math.sin(dLat/2)**2+Math.cos(a.lat*rad)*Math.cos(b.lat*rad)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.min(1,Math.sqrt(s)));}
+function bearing(a,b){const y=Math.sin((b.lon-a.lon)*rad)*Math.cos(b.lat*rad);const x=Math.cos(a.lat*rad)*Math.sin(b.lat*rad)-Math.sin(a.lat*rad)*Math.cos(b.lat*rad)*Math.cos((b.lon-a.lon)*rad);return (Math.atan2(y,x)/rad+360)%360;}
+// centripetal Catmull-Rom arc length between P1 and P2 (local metres)
+function crLen(P0,P1,P2,P3){
+  const o=P1,k=Math.cos(o.lat*rad);
+  const xy=p=>[(p.lon-o.lon)*rad*R*k,(p.lat-o.lat)*rad*R];
+  const p=[xy(P0),xy(P1),xy(P2),xy(P3)];
+  const d=(a,b)=>Math.hypot(b[0]-a[0],b[1]-a[1]);
+  const t0=0,t1=t0+Math.sqrt(d(p[0],p[1]))+1e-6,t2=t1+Math.sqrt(d(p[1],p[2]))+1e-6,t3=t2+Math.sqrt(d(p[2],p[3]))+1e-6;
+  const L=(a,b,ta,tb,t)=>{const u=(t-ta)/(tb-ta);return [a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u];};
+  let len=0,prev=p[1];const N=10;
+  for(let i=1;i<=N;i++){const t=t1+(t2-t1)*i/N;
+    const A1=L(p[0],p[1],t0,t1,t),A2=L(p[1],p[2],t1,t2,t),A3=L(p[2],p[3],t2,t3,t);
+    const B1=L(A1,A2,t0,t2,t),B2=L(A2,A3,t1,t3,t),C=L(B1,B2,t1,t2,t);
+    len+=d(prev,C);prev=C;}
+  return len;
+}
+function Engine(){this.reset();}
+Engine.prototype.reset=function(){
+  this.A=0;this.B=0;this.C=0;this.D=0;this.E=0;this.turn=0;
+  this.rawPrev=null;this.prev=null;this.lastB=null;this.pts=[];this.Eclosed=0;this.alt=null;this.lastHead=null;
+};
+Engine.prototype.add=function(f){
+  // A: raw chord sum of every fix
+  if(this.rawPrev) this.A+=hav(this.rawPrev,f);
+  this.rawPrev=f;
+  if(!(f.acc<=MAX_ACC)) return;
+  const p=this.prev; this.prev=f;
+  const hasV=f.speed!=null&&f.speed>=0;
+  const moving=hasV?f.speed>=STOP:(p?hav(p,f)>Math.max(3,f.acc*0.5):false);
+  // B: filtered chord (ignore bad accuracy and stops)
+  if(moving){ if(this.lastB) this.B+=hav(this.lastB,f); this.lastB=f; }
+  else if(!this.lastB) this.lastB=f;
+  // C: Doppler speed integration (trapezoid), chord fallback
+  let dh=0;
+  if(p){
+    const dt=(f.t-p.t)/1000;
+    const v1=(p.speed!=null&&p.speed>=0)?(p.speed<STOP?0:p.speed):null;
+    const v2=hasV?(f.speed<STOP?0:f.speed):null;
+    if(v1!=null&&v2!=null&&dt>0&&dt<=5) dh=(v1+v2)/2*dt;
+    else if(moving) dh=hav(p,f);
+  }
+  this.C+=dh;
+  // D: C + slope from smoothed altitude
+  if(f.alt!=null&&(f.altAcc==null||f.altAcc<=30)){
+    const pa=this.alt; this.alt=pa==null?f.alt:pa+0.25*(f.alt-pa);
+    const dz=pa==null?0:this.alt-pa;
+    this.D+=dh>0?Math.sqrt(dh*dh+dz*dz):0;
+  } else this.D+=dh;
+  // twistiness: accumulated heading change while moving > ~11 km/h
+  let h=null;
+  if(moving&&hasV&&f.speed>3){
+    if(f.heading!=null&&f.heading>=0) h=f.heading;
+    else if(p&&hav(p,f)>2) h=bearing(p,f);
+  }
+  if(h!=null){ if(this.lastHead!=null){let dd=Math.abs(h-this.lastHead);if(dd>180)dd=360-dd;this.turn+=dd;} this.lastHead=h; }
+  else if(!moving) this.lastHead=null;
+  // E: Catmull-Rom spline through moving points
+  if(moving){
+    this.pts.push(f); const n=this.pts.length;
+    if(n>=4) this.Eclosed+=crLen(this.pts[n-4],this.pts[n-3],this.pts[n-2],this.pts[n-1]);
+    else if(n===3) this.Eclosed+=hav(this.pts[0],this.pts[1]);
+    if(this.pts.length>4) this.pts.shift();
+    const m=this.pts.length;
+    this.E=this.Eclosed+(m>=2?hav(this.pts[m-2],this.pts[m-1]):0);
+  }
+};
+// ===ENGINE END===
+
+const ALG=['A','B','C','D','E'];
+const eng=new Engine();
+let fixes=[],marks=[],watchId=null,wake=null;
+const $=id=>document.getElementById(id);
+const fmt=v=>Math.round(v).toLocaleString('el-GR');
+function factor(){const v=parseFloat(String($('factor').value).replace(',','.'));return v>0?v:1;}
+
+function save(){try{localStorage.setItem('gpstest',JSON.stringify({fixes,marks,factor:$('factor').value}));}catch(e){}}
+function load(){
+  try{const s=JSON.parse(localStorage.getItem('gpstest')||'null');
+    if(s&&s.fixes){fixes=s.fixes;marks=s.marks||[];if(s.factor)$('factor').value=s.factor;
+      eng.reset();for(const f of fixes)eng.add(f);}
+  }catch(e){}
+}
+
+function render(){
+  const k=factor();
+  for(const a of ALG) $('v'+a).textContent=fmt(eng[a]*k);
+  const f=fixes[fixes.length-1];
+  $('acc').textContent=f?Math.round(f.acc)+' m':'–';
+  $('spd').textContent=f&&f.speed!=null&&f.speed>=0?Math.round(f.speed*3.6)+' km/h':'–';
+  $('cnt').textContent=fixes.length;
+  if(fixes.length>1){const dt=(f.t-fixes[0].t)/1000;$('rate').textContent=dt>0?((fixes.length-1)/dt).toFixed(2)+' Hz':'–';}
+  renderMarks();
+}
+function cell(v){const r=Math.round(v);return `<td class="${r>0?'pos':r<0?'neg':''}">${r>0?'+':''}${r}</td>`;}
+function renderMarks(){
+  const k=factor();let rows='',prev={rabbit:0,turn:0,A:0,B:0,C:0,D:0,E:0};
+  const sumAbs={A:0,B:0,C:0,D:0,E:0};
+  for(const m of marks){
+    const seg=m.rabbit-prev.rabbit;
+    const tpk=seg>0?(m.turn-prev.turn)/(seg/1000):0;
+    rows+=`<tr><td>${fmt(m.rabbit)}</td><td>${Math.round(tpk)}</td>`;
+    for(const a of ALG){const e=(m[a]-prev[a])*k-seg;sumAbs[a]+=Math.abs(e);rows+=cell(e);}
+    rows+='</tr>';prev=m;
+  }
+  $('tb').innerHTML=rows;
+  if(marks.length){
+    const last=marks[marks.length-1];
+    let ft='<tr><td colspan="2" style="text-align:left">Σύνολο</td>';
+    for(const a of ALG) ft+=cell(last[a]*k-last.rabbit);
+    ft+='</tr><tr><td colspan="2" style="text-align:left">Μέσο |τμήμα|</td>';
+    for(const a of ALG) ft+=`<td>${(sumAbs[a]/marks.length).toFixed(0)}</td>`;
+    $('tf').innerHTML=ft+'</tr>';
+  } else $('tf').innerHTML='';
+}
+
+function onPos(pos){
+  const c=pos.coords;
+  const f={t:pos.timestamp,lat:c.latitude,lon:c.longitude,alt:c.altitude,acc:c.accuracy,altAcc:c.altitudeAccuracy,speed:c.speed,heading:c.heading};
+  if(fixes.length&&f.t<=fixes[fixes.length-1].t) return;
+  $('errp').style.display='none';
+  eng.add(f);
+  for(const a of ALG) f[a]=eng[a];
+  fixes.push(f);
+  if(fixes.length%15===0) save();
+  render();
+}
+function onErr(e){$('errp').style.display='';$('errp').textContent='GPS: '+e.message;}
+async function lock(){try{if(navigator.wakeLock)wake=await navigator.wakeLock.request('screen');}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&watchId!=null)lock();});
+
+$('bStart').onclick=()=>{
+  if(watchId!=null)return;
+  if(!navigator.geolocation){onErr({message:'δεν υποστηρίζεται'});return;}
+  watchId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+  lock();
+  $('bStart').disabled=true;$('bStop').disabled=false;$('bMark').disabled=false;
+};
+$('bStop').onclick=()=>{
+  if(watchId!=null)navigator.geolocation.clearWatch(watchId);
+  watchId=null;try{wake&&wake.release();}catch(e){}wake=null;save();
+  $('bStart').disabled=false;$('bStop').disabled=true;$('bMark').disabled=true;
+};
+$('bMark').onclick=()=>{
+  const s=prompt('Ένδειξη Rabbit (μέτρα):');if(s==null)return;
+  const r=parseFloat(String(s).replace(',','.'));if(!(r>=0))return;
+  const m={t:Date.now(),rabbit:r,turn:eng.turn};for(const a of ALG)m[a]=eng[a];
+  marks.push(m);save();render();
+};
+$('bClear').onclick=()=>{
+  if(!confirm('Διαγραφή όλης της καταγραφής;'))return;
+  fixes=[];marks=[];eng.reset();try{localStorage.removeItem('gpstest');}catch(e){}render();
+};
+$('factor').onchange=()=>{save();render();};
+
+$('bExport').onclick=async()=>{
+  const cols=['t','lat','lon','alt','acc','altAcc','speed','heading','A','B','C','D','E'];
+  let csv='type,'+cols.join(',')+',rabbit,turn\n';
+  for(const f of fixes) csv+='fix,'+cols.map(c=>f[c]==null?'':f[c]).join(',')+',,\n';
+  for(const m of marks) csv+='mark,'+cols.map(c=>m[c]==null?'':m[c]).join(',')+','+m.rabbit+','+m.turn+'\n';
+  const d=new Date(),z=n=>String(n).padStart(2,'0');
+  const name=`gps-test-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.csv`;
+  const file=new File([csv],name,{type:'text/csv'});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});return;}}
+  catch(e){if(e.name==='AbortError')return;}
+  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=name;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+};
+
+load();render();
+</script>
+</body>
+</html>
