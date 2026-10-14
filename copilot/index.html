@@ -179,6 +179,17 @@ tr.cur td{background:color-mix(in srgb,var(--accent) 16%,transparent)}
 .srow small{color:var(--muted);font-size:13px}
 .srow.done{opacity:.6}
 .stages .split{grid-template-columns:minmax(0,1fr)}
+.startrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:stretch;max-width:560px}
+.startrow .startin{font-family:var(--display);font-size:34px;font-weight:700;text-align:center;min-width:0;width:100%}
+:root.phone .startrow{grid-template-columns:auto minmax(0,1fr) auto}
+:root.phone .startrow .startin{font-size:26px;padding-inline:4px}
+:root.phone .startrow #stStartSet{grid-column:1 / -1}
+.startrow .big1{min-width:76px;font-size:20px;font-weight:700}
+.rbpick{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;min-height:56px;font-size:18px}
+.rbpick-go{color:var(--accent);font-weight:700;white-space:nowrap}
+.more-card summary{cursor:pointer;padding:4px 0;list-style:revert}
+.more-card[open] summary{margin-bottom:8px}
+.more-card>*+*{margin-top:10px}
 .stages .split>.stack{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));align-items:start}
 table input{min-width:84px}
 .rbt{min-width:640px}
@@ -442,63 +453,54 @@ table input{min-width:84px}
       </aside>
       <div class="stack" style="min-width:0">
         <div class="card stack">
-          <div class="btnrow" style="justify-content:space-between;align-items:flex-end">
-            <div class="field" style="flex:1;min-width:220px"><label for="stName">Όνομα ειδικής</label><input id="stName"></div>
-            <span class="btnrow"><button class="btn" id="dupStage">Αντίγραφο</button><button class="btn danger" id="delStage">Διαγραφή</button></span>
+          <div class="field"><label for="stName">Όνομα ειδικής</label><input id="stName"></div>
+          <div class="field"><label for="stStart">Ώρα εκκίνησης</label>
+            <div class="btnrow startrow"><button class="btn big1" data-nd="-60">−1 λ</button><input id="stStart" class="num startin" inputmode="numeric" placeholder="11:50:00"><button class="btn big1" data-nd="60">+1 λ</button><button class="btn primary" id="stStartSet">Ορισμός</button></div></div>
+          <div class="field"><label>Ξεκινά από την τουλίπα</label>
+            <button class="btn rbpick" id="rbPick"><span id="rbPickTxt">—</span><span class="rbpick-go">Αλλαγή ▸</span></button></div>
+        </div>
+        <div class="card stack">
+          <div id="speedEditor" class="stack">
+            <div class="btnrow" style="justify-content:space-between"><span class="label">Τμήματα · από–έως μέτρα και ΜΩΤ</span><button class="btn" id="addSeg">+ Τμήμα</button></div>
+            <div class="tablewrap"><table>
+              <thead><tr><th>#</th><th>Από (m)</th><th>Έως (m)</th><th>ΜΩΤ (km/h)</th><th>Διάρκεια</th><th>Σύνολο</th><th></th></tr></thead>
+              <tbody id="segBody"></tbody></table></div>
           </div>
-          <div class="btnrow" id="delConfirm" hidden><span>Διαγραφή της ειδικής «<span id="delName"></span>»;</span><button class="btn danger" id="delYes">Διαγραφή</button><button class="btn" id="delNo">Άκυρο</button></div>
-          <div class="btnrow" style="align-items:flex-end">
-            <div class="field"><label for="stStart">Ώρα εκκίνησης</label>
-              <div class="btnrow" style="flex-wrap:nowrap"><input id="stStart" class="num" inputmode="numeric" placeholder="11:50:00" style="width:150px"><button class="btn primary" id="stStartSet">Ορισμός</button></div></div>
-            <div class="btnrow"><button class="btn" data-nd="-60">−1 λ</button><button class="btn" data-nd="-10">−10 s</button><button class="btn" data-nd="-1">−1 s</button><button class="btn" data-nd="1">+1 s</button><button class="btn" data-nd="10">+10 s</button><button class="btn" data-nd="60">+1 λ</button></div>
+          <div id="pointsEditor" class="stack" hidden>
+            <div class="btnrow" style="justify-content:space-between"><span class="label">Σημεία · απόσταση και ιδανικός χρόνος</span><button class="btn" id="addPt">+ Σημείο</button></div>
+            <div class="tablewrap"><table>
+              <thead><tr><th>#</th><th>Μέτρα</th><th>Χρόνος</th><th>Διόρθ. s</th><th>Ιδανική ώρα</th><th>Πέρασμα</th><th></th></tr></thead>
+              <tbody id="ptBody"></tbody></table></div>
+            <p class="note">Χρόνος σε δευτερόλεπτα («115») ή λεπτά («1:55»). Διόρθωση: −1,5 για 1,5 s νωρίτερα, 1,5 για αργότερα. Πέρασμα: + αργά, − νωρίς.</p>
           </div>
+          <div class="warnbox" id="edWarn" hidden></div>
+        </div>
+        <div class="card stack" id="bulkCard" hidden>
+          <span class="label">Γρήγορη εισαγωγή</span>
+          <p class="note" id="bulkNote"></p>
+          <div class="field"><label for="bulkText">Κείμενο</label><textarea id="bulkText"></textarea></div>
+          <button class="btn primary" id="bulkApply">Εφαρμογή</button>
+        </div>
+        <details class="card stack more-card">
+          <summary class="label">Περισσότερα · τύπος, ακριβής ώρα, roadbook σε km, αντίγραφο, διαγραφή</summary>
           <div class="btnrow">
             <span class="label">Τύπος</span>
             <div class="seg" role="group" aria-label="Τύπος ειδικής">
               <button data-mode="speed" aria-pressed="true">ΜΩΤ ανά τμήμα</button>
               <button data-mode="points" aria-pressed="false">Χρόνος ανά σημείο</button>
             </div>
-            <span style="flex:1"></span>
-            <button class="btn" id="startIn30">Εκκίνηση σε 30 s</button>
-            <button class="btn" id="zeroBtn">Μηδενισμός απόστασης</button>
-            <button class="btn danger" id="resetPass" hidden>Μηδενισμός περασμάτων</button>
           </div>
+          <div class="btnrow"><span class="label">Ώρα ±</span><button class="btn" data-nd="-10">−10 s</button><button class="btn" data-nd="-1">−1 s</button><button class="btn" data-nd="1">+1 s</button><button class="btn" data-nd="10">+10 s</button><button class="btn" id="startIn30">Εκκίνηση σε 30 s</button></div>
+          <div class="btnrow" style="align-items:flex-end">
+            <div class="field" style="flex:2;min-width:200px"><label for="rbSec">Τμήμα βιβλίου</label><select id="rbSec"></select></div>
+            <div class="field" style="flex:1;min-width:100px"><label for="rbTul">Τουλίπα #</label><input id="rbTul" class="num" inputmode="numeric"></div>
+            <div class="field" style="flex:1;min-width:100px"><label for="rbOff">ή km βιβλίου</label><input id="rbOff" class="num" inputmode="decimal" value="0"></div></div>
+          <p class="note" id="rbNote"></p>
+          <div class="btnrow"><button class="btn" id="zeroBtn">Μηδενισμός απόστασης</button><button class="btn danger" id="resetPass" hidden>Μηδενισμός περασμάτων</button></div>
           <div class="btnrow" id="resetConfirm" hidden><span>Να σβηστούν τα περάσματα;</span><button class="btn danger" id="resetYes">Ναι</button><button class="btn" id="resetNo">Όχι</button></div>
-        </div>
-        <div class="split">
-          <div class="card stack">
-            <div id="speedEditor" class="stack">
-              <div class="btnrow" style="justify-content:space-between"><span class="label">Τμήματα · από–έως μέτρα και ΜΩΤ</span><button class="btn" id="addSeg">+ Τμήμα</button></div>
-              <div class="tablewrap"><table>
-                <thead><tr><th>#</th><th>Από (m)</th><th>Έως (m)</th><th>ΜΩΤ (km/h)</th><th>Διάρκεια</th><th>Σύνολο</th><th></th></tr></thead>
-                <tbody id="segBody"></tbody></table></div>
-            </div>
-            <div id="pointsEditor" class="stack" hidden>
-              <div class="btnrow" style="justify-content:space-between"><span class="label">Σημεία · απόσταση και ιδανικός χρόνος</span><button class="btn" id="addPt">+ Σημείο</button></div>
-              <div class="tablewrap"><table>
-                <thead><tr><th>#</th><th>Μέτρα</th><th>Χρόνος</th><th>Διόρθ. s</th><th>Ιδανική ώρα</th><th>Πέρασμα</th><th></th></tr></thead>
-                <tbody id="ptBody"></tbody></table></div>
-              <p class="note">Χρόνος σε δευτερόλεπτα («115») ή λεπτά («1:55»). Διόρθωση: −1,5 για 1,5 s νωρίτερα, 1,5 για αργότερα. Πέρασμα: + αργά, − νωρίς.</p>
-            </div>
-            <div class="warnbox" id="edWarn" hidden></div>
-          </div>
-          <div class="stack">
-            <div class="card stack">
-              <span class="label">Γρήγορη εισαγωγή</span>
-              <p class="note" id="bulkNote"></p>
-              <div class="field"><label for="bulkText">Κείμενο</label><textarea id="bulkText"></textarea></div>
-              <button class="btn primary" id="bulkApply">Εφαρμογή</button>
-            </div>
-            <div class="card stack">
-              <span class="label">Roadbook</span>
-              <div class="field"><label for="rbSec">Τμήμα βιβλίου</label><select id="rbSec"></select></div>
-              <div class="btnrow" style="align-items:flex-end">
-                <div class="field" style="flex:1;min-width:120px"><label for="rbTul">Ξεκινά από την τουλίπα #</label><input id="rbTul" class="num" inputmode="numeric"></div>
-                <div class="field" style="flex:1;min-width:120px"><label for="rbOff">ή στα km βιβλίου</label><input id="rbOff" class="num" inputmode="decimal" value="0"></div></div>
-              <p class="note" id="rbNote"></p>
-            </div>
-          </div>
-        </div>
+          <div class="btnrow"><button class="btn" id="dupStage">Αντίγραφο ειδικής</button><button class="btn danger" id="delStage">Διαγραφή ειδικής</button></div>
+          <div class="btnrow" id="delConfirm" hidden><span>Διαγραφή της ειδικής «<span id="delName"></span>»;</span><button class="btn danger" id="delYes">Διαγραφή</button><button class="btn" id="delNo">Άκυρο</button></div>
+        </details>
       </div>
     </div>
   </section>
@@ -581,7 +583,7 @@ table input{min-width:84px}
             <div class="field" style="flex:1;min-width:150px"><label for="gpsMin">GPS: ελάχιστη ταχύτητα (km/h)</label><input id="gpsMin" class="num" inputmode="decimal"></div>
             <div class="field" style="flex:1;min-width:150px"><label for="gpsAcc">GPS: μέγιστο σφάλμα θέσης (m)</label><input id="gpsAcc" class="num" inputmode="decimal"></div>
           </div>
-          <p class="note">Με GPS η απόσταση βγαίνει από την ταχύτητα που μετράει ο δέκτης και βαθμονομείται όπως οι αισθητήρες. Κάτω από την ελάχιστη ταχύτητα δεν προσθέτει μέτρα. Η σύνδεση με το πραγματικό box (192.168.4.1, θύρα 11912) έρχεται με την έκδοση APK. <b>Έκδοση εφαρμογής: v4 (έμφαση στην πλοήγηση, «Είμαι εδώ» στο roadbook)</b></p>
+          <p class="note">Με GPS η απόσταση βγαίνει από την ταχύτητα που μετράει ο δέκτης και βαθμονομείται όπως οι αισθητήρες. Κάτω από την ελάχιστη ταχύτητα δεν προσθέτει μέτρα. Η σύνδεση με το πραγματικό box (192.168.4.1, θύρα 11912) έρχεται με την έκδοση APK. <b>Έκδοση εφαρμογής: v5 (νέα καρτέλα ειδικής, εξαγωγή δεδομένων)</b></p>
         </div>
       </div>
       <div class="stack">
@@ -602,6 +604,13 @@ table input{min-width:84px}
           <p class="note">Με «Αυτόματα» το πέρασμα καταγράφεται τη στιγμή που η απόσταση φτάνει το σημείο, και το NEXT μένει για χειροκίνητο πέρασμα. Με «NEXT» το καταγράφεις εσύ, και αν δεν το πατήσεις, 10 s μετά την ιδανική ώρα περνάει μόνο του στο επόμενο.</p>
           <div class="field" style="max-width:220px"><label for="tol">Όριο «στο χρόνο» (s)</label><input id="tol" class="num" inputmode="decimal"></div>
           <label class="check"><input type="checkbox" id="dayMode"> Λειτουργία ημέρας (φωτεινή)</label>
+        </div>
+        <div class="card stack">
+          <span class="label">Δεδομένα για ανάλυση</span>
+          <p class="note" id="logInfo">—</p>
+          <div class="btnrow"><button class="btn primary" id="logExport">Εξαγωγή CSV</button><button class="btn danger" id="logClear">Διαγραφή καταγραφής</button></div>
+          <p class="note">Η εφαρμογή κρατάει κάθε σήμα GPS (θέση, ταχύτητα, ακρίβεια, μέτρα) και κάθε γεγονός: μηδενισμοί, διορθώσεις, τουλίπες, περάσματα σημείων, βαθμονομήσεις. Κρατιούνται οι τελευταίες ~5 ώρες.</p>
+          <label class="check"><input type="checkbox" id="showBulk"> Γρήγορη εισαγωγή κειμένου στην καρτέλα «Ειδικές»</label>
         </div>
         <div class="card stack">
           <span class="label">Καταγραφή σημείων (κράτημα κουμπιού box)</span>
@@ -641,7 +650,7 @@ const sgn=v=>v>0?'+':v<0?MINUS:'';
 
 /* ---------- state ---------- */
 const DEF={f1:0.43404950,f2:0.43369565,fGps:1,gpsMin:2,gpsAcc:25,source:'sim',sensMode:'avg',offset:0,day:false,snd:'voice',
-  tol:0.3,passMode:'auto',navView:'auto',layout:'auto',autoZero:true,autoCal:true,focus:'nav',fGpsCal:null,rb:{sec:1,off:0},marks:[],calHist:[],stages:[],active:null};
+  tol:0.3,passMode:'auto',navView:'auto',layout:'auto',autoZero:true,autoCal:true,focus:'nav',showBulk:false,fGpsCal:null,rb:{sec:1,off:0},marks:[],calHist:[],stages:[],active:null};
 let S;
 const LITE=!!window.NO_SIM;  // phone/GitHub build: real GPS only, no simulator, no example stages
 function load(){
@@ -677,6 +686,14 @@ function parseLine(line){
 }
 const BUTTONS={btUp:+1,btDown:-1,btUp10:+10,btDown10:-10};
 
+/* ---------- data log for analysis (GPS fixes + events), exported as CSV from Settings ---------- */
+const LOGK='regapp.log',LOGMAX=20000;let LOG=[];try{LOG=JSON.parse(localStorage.getItem(LOGK))||[];}catch(e){LOG=[];}
+let logDirty=0;
+function logRow(o){LOG.push(o);if(LOG.length>LOGMAX)LOG.splice(0,LOG.length-LOGMAX);logDirty++;}
+const r1=v=>v==null||!isFinite(v)?null:Math.round(v*10)/10,r7=v=>v==null||!isFinite(v)?null:Math.round(v*1e7)/1e7;
+function logEv(ev,val,note){try{const st=act();logRow({e:ev,t:Date.now(),v:val==null?'':val,n:note||'',s:st?st.name:'',m:r1(meters()),f:S.fGps});}catch(e){}}
+function logSave(){if(!logDirty)return;logDirty=0;try{localStorage.setItem(LOGK,JSON.stringify(LOG));}catch(e){LOG.splice(0,Math.floor(LOG.length/3));try{localStorage.setItem(LOGK,JSON.stringify(LOG));}catch(e2){}}}
+setInterval(logSave,20000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')logSave();});
 /* ---------- distance sources ---------- */
 const L={a:0,b:0,lastMsg:0,a0:0,b0:0,corr:0,speed:0,hist:[],frozen:null,cal:null,prevX:0,prevT:0};
 const G={dist:0,d0:0,shown:0,last:null,acc:null,v:0,moving:false,fixAt:0,watch:null,err:null,alt:null,goodSince:0,movT:0,slowT:0,turn:0,hd:null,seg:null};
@@ -685,7 +702,7 @@ function onFix(pos){
   const c=pos.coords,t=pos.timestamp||Date.now();G.acc=c.accuracy;G.err=null;
   // "GPS ready": accuracy has stayed at or under 6 m for 10 s
   if(c.accuracy<=6){if(!G.goodSince)G.goodSince=t;}else G.goodSince=0;
-  if(!(c.accuracy<=(+S.gpsAcc||25))){G.moving=false;return;} // keep G.last so the gap is bridged by the next good fix
+  if(!(c.accuracy<=(+S.gpsAcc||25))){G.moving=false;logFix(c,t);return;} // keep G.last so the gap is bridged by the next good fix
   if(G.last&&t<=G.last.t)return; // iOS sometimes repeats the same fix
   const v=(c.speed!=null&&isFinite(c.speed)&&c.speed>=0)?c.speed:null;
   // smoothed altitude for slope correction
@@ -700,7 +717,9 @@ function onFix(pos){
           if(h!=null){if(G.hd!=null){let d=Math.abs(h-G.hd);if(d>180)d=360-d;G.turn+=d;}G.hd=h;}}else G.hd=null;
         G.v=vv;L.speed=G.moving?vv*3.6:0;}}}
   G.last={lat:c.latitude,lon:c.longitude,t,v};G.fixAt=performance.now();
+  logFix(c,t);
 }
+function logFix(c,t){try{logRow([t,r7(c.latitude),r7(c.longitude),r1(c.altitude),r1(c.accuracy),r1(c.altitudeAccuracy),c.speed==null?null:Math.round(c.speed*100)/100,r1(c.heading),r1(G.dist),r1(meters())]);}catch(e){}}
 function brg(a,c){const r=Math.PI/180,y=Math.sin((c.longitude-a.lon)*r)*Math.cos(c.latitude*r),x=Math.cos(a.lat*r)*Math.sin(c.latitude*r)-Math.sin(a.lat*r)*Math.cos(c.latitude*r)*Math.cos((c.longitude-a.lon)*r);return (Math.atan2(y,x)/r+360)%360;}
 // snapshot of the GPS counters, and what happened between two snapshots
 function gpsSnap(){return {raw:gpsRaw(),movT:G.movT,slowT:G.slowT,turn:G.turn,ready:gpsReady()};}
@@ -708,7 +727,7 @@ function gpsSpan(a){const b=gpsSnap(),raw=b.raw-a.raw,mov=b.movT-a.movT;return {
 // change the GPS factor without making the shown distance jump
 function setGpsFactor(f){const raw=gpsRaw()-G.d0;L.corr+=raw*(S.fGps-f);S.fGps=f;save();if(typeof showF==='function')showF();}
 // called after the distance was set to a known roadbook position (book km)
-function tulipAnchor(km){
+function tulipAnchor(km){logEv('tulip',km);
   if(S.source!=='gps'){G.seg=null;return;}
   const prev=G.seg;G.seg={km,snap:gpsSnap()};
   if(!S.autoCal||!prev)return;
@@ -721,7 +740,7 @@ function tulipAnchor(km){
   else if(Math.abs(k/S.fGps-1)>0.015)why='απόκλιση πολύ μεγάλη για να είναι από το GPS';
   if(why){setTimeout(()=>toast('Συντελεστής GPS δεν άλλαξε: '+why),1600);return;}
   let f=S.fGps+0.3*(k-S.fGps);f=Math.min(base*1.005,Math.max(base*0.995,f));
-  const old=S.fGps;setGpsFactor(f);
+  const old=S.fGps;setGpsFactor(f);logEv('factor_auto',f,'from '+old.toFixed(5));
   setTimeout(()=>toast('Συντελεστής GPS '+old.toFixed(5)+' → '+f.toFixed(5)),1600);
 }
 function gpsReady(){return !!(G.goodSince&&G.last&&G.last.t-G.goodSince>=10000&&performance.now()-G.fixAt<3000);}
@@ -789,7 +808,7 @@ function stageStatus(st){const p=pts(st),n=p.length-1;if(st.mode==='points'&&n&&
 
 /* ---------- actions ---------- */
 let toastT;function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,1800);}
-function correct(m){L.corr+=m;toast(sgn(m)+Math.abs(m)+' m');}
+function correct(m){logEv('correct',m);L.corr+=m;toast(sgn(m)+Math.abs(m)+' m');}
 /* meters freeze / edit / zero — page-built dialog */
 let SH=null;
 function closeSheet(){SH=null;L.frozen=null;$('sheet').hidden=true;}
@@ -828,7 +847,7 @@ $('shOk').onclick=()=>{if(!SH)return;
     save();closeSheet();renderRbView(false);toast('Τουλίπα '+r.n+' αποθηκεύτηκε');return;}
   if(SH.kind==='here'){const [i,j]=SH.key.split(':').map(Number),r=BOOK[i].rows[j],st=act(),rb=stRb(st);
     if($('shCheck').checked){const d=(r.total-(meters()/1000+(+rb.off||0)))*1000;rb.sec=i;L.corr+=d;save();closeSheet();tulipAnchor(r.total);showTab('nav');toast('Τουλίπα '+r.n+' · απόσταση '+sgn(d)+Math.round(Math.abs(d))+' m');}
-    else{rb.sec=i;rb.off=Math.round((r.total-meters()/1000)*1000)/1000;G.seg=null;save();closeSheet();showTab('nav');toast('Τουλίπες από την '+r.n+' · '+BOOK[i].name);}
+    else{rb.sec=i;rb.off=Math.round((r.total-meters()/1000)*1000)/1000;G.seg=null;save();logEv('tulip_align',r.total,BOOK[i].name);closeSheet();showTab('nav');toast('Τουλίπες από την '+r.n+' · '+BOOK[i].name);}
     return;}
   if(SH.kind==='tulip'){const sec=rbSec(),n=parseInt($('shInput').value,10),r=sec&&sec.rows.find(x=>x.n===n);
     if(!r){toast('Δεν υπάρχει τουλίπα '+($('shInput').value||''));return;}
@@ -837,17 +856,17 @@ $('shOk').onclick=()=>{if(!SH)return;
     else{rb.off=Math.round((r.total-meters()/1000)*1000)/1000;save();closeSheet();toast('Τουλίπες στοιχίστηκαν στην '+n+' (η απόσταση δεν άλλαξε)');}
     return;}
   const v=parseM($('shInput').value);if(!isFinite(v)||v<0){toast('Γράψε απόσταση σε μέτρα');return;}
-  const delta=v-SH.snap;L.corr+=delta;closeSheet();toast('Απόσταση '+v+' m ('+sgn(delta)+Math.round(Math.abs(delta))+' m)');};
+  const delta=v-SH.snap;L.corr+=delta;logEv('set_m',v,SH.kind);closeSheet();toast('Απόσταση '+v+' m ('+sgn(delta)+Math.round(Math.abs(delta))+' m)');};
 $('shInput').onkeydown=e=>{if(e.key==='Enter')$('shOk').click();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&SH)closeSheet();});
 function mark(){
   const ss=stageState();if(!ss)return;const dev=ss.elapsed!=null?ss.elapsed-idealTimeAt(ss.p,ss.x):NaN;
   const line=hms(now(),true)+' · '+fmt(ss.x/1000,3)+' km · '+(isFinite(dev)?sgn(dev)+fmt(Math.abs(dev),1)+' s':'—');
-  S.marks.unshift(line);S.marks=S.marks.slice(0,50);save();renderMarks();toast('Σημείο: '+line);
+  logEv('mark',Math.round(ss.x),line);S.marks.unshift(line);S.marks=S.marks.slice(0,50);save();renderMarks();toast('Σημείο: '+line);
 }
-function zero(){L.a0=L.a;L.b0=L.b;G.d0=gpsRaw();L.corr=0;G.seg=S.source==='gps'&&act()?{km:bookKm(),snap:gpsSnap()}:null;L.hist=[];L.prevX=0;toast('Απόσταση μηδενίστηκε');}
+function zero(){logEv('zero');L.a0=L.a;L.b0=L.b;G.d0=gpsRaw();L.corr=0;G.seg=S.source==='gps'&&act()?{km:bookKm(),snap:gpsSnap()}:null;L.hist=[];L.prevX=0;toast('Απόσταση μηδενίστηκε');}
 function passDev(st,i){const p=pts(st);if(!st.pass||st.pass[i]==null||!p[i+1])return null;return (st.pass[i]-(st.start+p[i+1].t*1000))/1000;}
-function recordPass(st,i,t){st.pass=st.pass||[];st.pass[i]=t;st.idx=i+1;save();const d=passDev(st,i);
+function recordPass(st,i,t){st.pass=st.pass||[];st.pass[i]=t;st.idx=i+1;save();const d=passDev(st,i);logEv('pass',i+1,d==null?'':'dev '+d.toFixed(2)+' s');
   if(d!=null)toast('Σημείο '+(i+1)+': '+sgn(d)+fmt(Math.abs(d),1)+' s'+(Math.abs(d)<=(+S.tol||0.3)?' ✓':d>0?' αργά':' νωρίς'));renderEditor();}
 function nextPoint(){const st=act();if(!st||st.mode!=='points')return;const n=pts(st).length-1;if((st.idx||0)>=n)return;
   if(!st.start||now()<st.start){toast('Η ειδική δεν έχει ξεκινήσει');return;}recordPass(st,st.idx||0,now());}
@@ -966,7 +985,7 @@ function renderRbView(scrollNow){
     return '<tr class="'+(isNow?'rnow ':'')+(m?'rmeas':'')+'" data-k="'+i+':'+j+'"><td class="n">'+r.n+'</td>'+
       '<td class="km num"><button class="kmbtn" data-edit="'+i+':'+j+'">'+fmt(r.total,3)+'</button></td><td class="pk num">'+(r.partial==null?'—':fmt(r.partial,3))+'</td>'+
       '<td><div class="paper"><img src="'+r.src+'" alt="Τουλίπα '+r.n+'" loading="lazy"><div class="ibox">'+(r.isrc?'<img src="'+r.isrc+'" alt="'+esc(r.info||'Information')+'" loading="lazy">':'<span>'+esc(r.info||'')+'</span>')+'</div></div></td>'+
-      '<td class="pk num">'+(r.regress==null?'—':fmt(r.regress,3))+'</td><td>'+(isNow?'<span class="tag now">ΕΠΟΜΕΝΗ</span><br>':'')+(m?'<span class="tag m">ΜΕΤΡΗΣΗ · σημείο '+m.i+'</span><br>':'')+(ed?'<span class="tag ed">διορθωμένη</span><br>':'')+(ok?'<span class="tag ok">✓ km</span>':'<span class="tag bad">✕ μερικά ≠ διαφορά</span>')+'<br><button class="btn primary herebtn" data-here="'+i+':'+j+'">Είμαι εδώ</button></td></tr>';}).join('');
+      '<td class="pk num">'+(r.regress==null?'—':fmt(r.regress,3))+'</td><td>'+(isNow?'<span class="tag now">ΕΠΟΜΕΝΗ</span><br>':'')+(m?'<span class="tag m">ΜΕΤΡΗΣΗ · σημείο '+m.i+'</span><br>':'')+(ed?'<span class="tag ed">διορθωμένη</span><br>':'')+(ok?'<span class="tag ok">✓ km</span>':'<span class="tag bad">✕ μερικά ≠ διαφορά</span>')+'<br><button class="btn primary herebtn" data-here="'+i+':'+j+'">'+(rbPickMode?'Ξεκινά εδώ':'Είμαι εδώ')+'</button></td></tr>';}).join('');
   $('rbvInfo').textContent=n+' τουλίπες'+(bad?' · '+bad+' με ασυμφωνία στα km':' · όλα τα μερικά km συμφωνούν')+(edited?' · '+edited+' διορθωμένες από σένα':'')+'. Πάτα τα km μιας τουλίπας για να τα διορθώσεις.';
   if(scrollNow&&scrollTo){const tr=$('rbvBody').querySelector('[data-k="'+scrollTo+'"]');if(tr)tr.scrollIntoView({block:'center'});}
 }
@@ -978,9 +997,12 @@ function editTulip(key){
   openSheet({kind:'rbedit',key,edit:true,value:fmt(r.total,3),label:'Συνολικά km',value2:r.partial==null?'':fmt(r.partial,3),label2:'Μερικά km',quick,ok:'Αποθήκευση',
     title:'Τουλίπα '+r.n+' · '+BOOK[i].name+' ('+BOOK[i].book+')',text:'Διόρθωσε τα km αν διαβάστηκαν λάθος. Η αλλαγή ισχύει αμέσως στην πλοήγηση και στις μετρήσεις.'});
 }
-$('rbvBody').onclick=e=>{const h=e.target.closest('[data-here]');if(h){hereTulip(h.dataset.here);return;}
+$('rbvBody').onclick=e=>{const h=e.target.closest('[data-here]');if(h){if(rbPickMode)pickStart(h.dataset.here);else hereTulip(h.dataset.here);return;}
   const b=e.target.closest('[data-edit]');if(b){editTulip(b.dataset.edit);return;}
-  const tr=e.target.closest('tr[data-k]');if(tr&&e.target.closest('.paper'))hereTulip(tr.dataset.k);};
+  const tr=e.target.closest('tr[data-k]');if(tr&&e.target.closest('.paper')){if(rbPickMode)pickStart(tr.dataset.k);else hereTulip(tr.dataset.k);}};
+let rbPickMode=false;
+$('rbPick').onclick=()=>{rbPickMode=true;const st=act();rbvSel=BOOK[stRb(st).sec]?'s:'+stRb(st).sec:'all:'+BOOKT[BOOKT.length-1];showTab('rb');toast('Πάτα την τουλίπα όπου ξεκινά η ειδική');};
+function pickStart(key){const [i,j]=key.split(':').map(Number),r=BOOK[i].rows[j],st=act();stRb(st).sec=i;stRb(st).off=r.total;rbPickMode=false;save();showTab('stage');toast(st.name+' ξεκινά στην τουλίπα '+r.n+' · '+BOOK[i].name);}
 // "I am at this tulip": works across sections (liaison → stage), the tulips follow from here
 function hereTulip(key){
   if(SH)return;const [i,j]=key.split(':').map(Number),r=BOOK[i]&&BOOK[i].rows[j];if(!r)return;
@@ -1131,7 +1153,7 @@ function parsePoints(text){
   return text.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>l.split(/[\s;\t]+/)).filter(x=>x.length>=2)
     .map(x=>({m:parseM(x[0]),s:parseTime(x[1]),c:x[2]!=null&&isFinite(num(x[2]))?num(x[2]):0})).filter(p=>isFinite(p.m)&&isFinite(p.s));
 }
-function sortPts(st){st.points.sort((a,b)=>(+a.m)-(+b.m));}
+function sortPts(st){st.points.sort((a,b)=>(isFinite(a.m)?+a.m:1e12)-(isFinite(b.m)?+b.m:1e12));}
 function sortedStages(){return S.stages.slice().sort((a,b)=>(a.start||9e15)-(b.start||9e15));}
 function stageRows(){
   return sortedStages().map(s=>{const stt=stageStatus(s);
@@ -1149,7 +1171,9 @@ function renderEditor(){
   const pm=st.mode==='points';
   $('rbSec').value=stRb(st).sec;if(document.activeElement!==$('rbOff'))$('rbOff').value=String(stRb(st).off).replace('.',',');
   {const sec=BOOK[stRb(st).sec];let tn='';if(sec){const o=+stRb(st).off||0;const r=sec.rows.find(x=>Math.abs(x.total-o)<0.0005);tn=r?r.n:'';}if(document.activeElement!==$('rbTul'))$('rbTul').value=tn;}
-  $('speedEditor').hidden=pm;$('pointsEditor').hidden=!pm;$('resetPass').hidden=!pm;
+  $('speedEditor').hidden=pm;$('pointsEditor').hidden=!pm;$('resetPass').hidden=!pm;$('bulkCard').hidden=!S.showBulk;
+  {const sec=BOOK[stRb(st).sec],o=+stRb(st).off||0,r=sec&&sec.rows.find(x=>Math.abs(x.total-o)<0.0005);
+   $('rbPickTxt').textContent=!sec?'Χωρίς roadbook':(r?'Τουλίπα '+r.n:fmt(o,3)+' km')+' · '+sec.name;}
   if(document.activeElement!==$('stName'))$('stName').value=st.name;
   if(document.activeElement!==$('stStart'))$('stStart').value=st.start?hms(st.start):'';
   $('bulkNote').textContent=pm?'Μία γραμμή ανά σημείο: μέτρα και χρόνος, και προαιρετικά διόρθωση. Π.χ. «400 40» ή «1500 1:55 −1,5». Αντικαθιστά τα σημεία.':'Τα τμήματα όπως τα δίνει ο οργανωτής, σε μία ή πολλές γραμμές. Π.χ. «0 έως 1500 ΜΩΤ 43, 1500 έως 3780 ΜΩΤ 50». Αντικαθιστά τα τμήματα.';
@@ -1169,7 +1193,7 @@ function renderEditor(){
   }else{
     const body=$('ptBody');body.innerHTML='';let lm=0,lt=0;const idx=st.idx||0;
     st.points.forEach((p,i)=>{
-      const t=(+p.s)+(+p.c||0),ok=+p.m>lm&&t>lt,v=ok?(p.m-lm)/(t-lt)*3.6:NaN,bad=!ok||v>70;if(bad)warn.push(i+1);
+      const t=(+p.s)+(+p.c||0),ok=+p.m>lm&&t>lt,v=ok?(p.m-lm)/(t-lt)*3.6:NaN,empty=!isFinite(p.m)&&!isFinite(p.s),bad=!empty&&(!ok||v>70);if(bad)warn.push(i+1);
       const d=passDev(st,i);
       const passTxt=i<idx?(d==null?'<span style="color:var(--muted)">αυτόμ.</span>':'<span class="num '+(Math.abs(d)<=(+S.tol||0.3)?'d-ok':d>0?'d-late':'d-early')+'">'+sgn(d)+fmt(Math.abs(d),1)+' s</span>'):'';
       const tr=document.createElement('tr');tr.className=(bad?'bad ':'')+(i===idx?'cur':'');
@@ -1196,7 +1220,7 @@ $('delNo').onclick=()=>{$('delConfirm').hidden=true;};
 $('delYes').onclick=()=>{const id=act().id;S.stages=S.stages.filter(s=>s.id!==id);S.active=S.stages[0].id;$('delConfirm').hidden=true;save();renderEditor();};
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{const st=act();st.mode=b.dataset.mode;st.idx=0;st.pass=[];save();renderEditor();});
 $('addSeg').onclick=()=>{const g=act().segs;const l=g[g.length-1];g.push({to:(l?l.to:0)+1000,v:l?l.v:40});save();renderEditor();};
-$('addPt').onclick=()=>{const p=act().points;const l=p[p.length-1];p.push({m:(l?+l.m:0)+500,s:Math.round(((l?+l.s:0)+40)*10)/10,c:0});save();renderEditor();};
+$('addPt').onclick=()=>{const p=act().points;p.push({m:NaN,s:NaN,c:0});save();renderEditor();const i=p.length-1,el=$('pm'+i);if(el){el.focus();el.scrollIntoView({block:'center'});}};
 $('bulkApply').onclick=()=>{const st=act();const txt=$('bulkText').value;
   if(st.mode==='points'){const p=parsePoints(txt);if(!p.length){toast('Δεν βρέθηκαν σημεία');return;}st.points=p;sortPts(st);st.idx=0;st.pass=[];toast(p.length+' σημεία');}
   else{const g=parseSegs(txt);if(!g.length){toast('Δεν βρέθηκαν τμήματα');return;}st.segs=g;toast(g.length+' τμήματα · '+fmt(g[g.length-1].to/1000,3)+' km');}
@@ -1217,7 +1241,7 @@ function showF(){$('f1').value=S.f1.toFixed(8);$('f2').value=S.f2.toFixed(8);$('
   $('calHist').innerHTML=(S.calHist||[]).map(h=>'<span class="num">'+esc(h)+'</span>').join('')||'<span>Δεν έχει γίνει βαθμονόμηση εδώ ακόμα.</span>';}
 $('f1').onchange=e=>{const v=num(e.target.value);if(v>0)S.f1=v;save();showF();};
 $('f2').onchange=e=>{const v=num(e.target.value);if(v>0)S.f2=v;save();showF();};
-$('fG').onchange=e=>{const v=num(e.target.value);if(v>0.5&&v<1.5){S.fGps=v;S.fGpsCal=v;}save();showF();};
+$('fG').onchange=e=>{const v=num(e.target.value);if(v>0.5&&v<1.5){S.fGps=v;S.fGpsCal=v;logEv('factor_manual',v);}save();showF();};
 $('sensMode').onchange=e=>{S.sensMode=e.target.value;save();};
 $('calStart').onclick=()=>{L.cal={a:L.a,b:L.b,g:gpsRaw(),snap:gpsSnap()};toast(S.source==='gps'&&!gpsReady()?'Μέτρηση ξεκίνησε — προσοχή, το GPS δεν είναι ακόμα έτοιμο':'Μέτρηση ξεκίνησε');};
 $('calDone').onclick=()=>{
@@ -1227,9 +1251,10 @@ $('calDone').onclick=()=>{
     const sp=gpsSpan(L.cal.snap),warn=[];if(!L.cal.snap.ready)warn.push('GPS όχι έτοιμο στην αρχή');if(sp.slowPct>15)warn.push(Math.round(sp.slowPct)+'% κάτω από 20 km/h');
     const f=km*1000/dg;S.fGps=f;S.fGpsCal=f;
     S.calHist.unshift(hms(now())+' · '+fmt(km,3)+' km · GPS '+f.toFixed(5)+(warn.length?' · ⚠ '+warn.join(', '):' · ✓'));
-    if(warn.length){S.calHist=S.calHist.slice(0,10);save();showF();L.cal=null;toast('Βαθμονόμηση αποθηκεύτηκε, αλλά: '+warn.join(', ')+'. Καλύτερα ξανά.');return;}}
+    if(warn.length){logEv('calibration',km,'GPS '+f.toFixed(5)+' warn: '+warn.join('; '));S.calHist=S.calHist.slice(0,10);save();showF();L.cal=null;toast('Βαθμονόμηση αποθηκεύτηκε, αλλά: '+warn.join(', ')+'. Καλύτερα ξανά.');return;}}
   else{const da=L.a-L.cal.a,db=L.b-L.cal.b;if(!(km>0)||da<10||db<10){toast('Χρειάζονται περισσότεροι παλμοί');return;}
     S.f1=km*1000/da;S.f2=km*1000/db;S.calHist.unshift(hms(now())+' · '+fmt(km,3)+' km · S1 '+S.f1.toFixed(5)+' · S2 '+S.f2.toFixed(5));}
+  logEv('calibration',km,S.source==='gps'?'GPS '+(+S.fGps).toFixed(5):'S1 '+S.f1+' S2 '+S.f2);
   S.calHist=S.calHist.slice(0,10);save();showF();L.cal=null;toast('Βαθμονόμηση αποθηκεύτηκε');
 };
 function renderCal(){if(!L.cal){$('calMeters').textContent='—';$('calPulses').textContent=(S.source==='gps'?gpsStatus()+' · ':'')+'Πάτα «Αρχή μέτρησης».';return;}
@@ -1241,6 +1266,21 @@ function applyDay(){document.documentElement.classList.toggle('day',!!S.day);$('
 $('dayMode').onchange=e=>{S.day=e.target.checked;save();applyDay();};
 $('snd').value=S.snd;$('snd').onchange=e=>{S.snd=e.target.value;save();if(S.snd==='voice')say('δέκα');else if(S.snd==='beep')beep(880,.12);};
 $('navView').value=S.navView;$('navView').onchange=e=>{S.navView=e.target.value;save();};
+function logInfo(){const fx=LOG.filter(Array.isArray),ev=LOG.length-fx.length,t0=LOG.length?(Array.isArray(LOG[0])?LOG[0][0]:LOG[0].t):null;
+  $('logInfo').textContent=LOG.length?fx.length+' σήματα GPS · '+ev+' γεγονότα · από '+new Date(t0).toLocaleString('el-GR'):'Δεν υπάρχει καταγραφή ακόμα.';}
+$('logExport').onclick=async()=>{logSave();
+  const H='type,time,t,lat,lon,alt,acc,altAcc,speed,heading,raw_m,meters,factor,stage,event,value,note';
+  const q=v=>v==null?'':(typeof v==='string'&&/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v);
+  const iso=t=>new Date(t).toISOString();
+  const lines=[H];for(const r of LOG){
+    if(Array.isArray(r))lines.push(['fix',iso(r[0]),...r,'','','','',''].map(q).join(','));
+    else lines.push(['event',iso(r.t),r.t,'','','','','','','','',r.m,r.f,r.s,r.e,r.v,r.n].map(q).join(','));}
+  const d=new Date(),z=n=>String(n).padStart(2,'0'),name='copilot-'+d.getFullYear()+z(d.getMonth()+1)+z(d.getDate())+'-'+z(d.getHours())+z(d.getMinutes())+'.csv';
+  const file=new File([lines.join('\n')],name,{type:'text/csv'});
+  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});return;}}catch(e){if(e.name==='AbortError')return;}
+  const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);};
+$('logClear').onclick=()=>{if(!confirm('Διαγραφή όλης της καταγραφής;'))return;LOG=[];logDirty=1;logSave();logInfo();toast('Η καταγραφή διαγράφηκε');};
+$('showBulk').checked=!!S.showBulk;$('showBulk').onchange=e=>{S.showBulk=e.target.checked;save();};
 $('focus').value=S.focus||'nav';$('focus').onchange=e=>{S.focus=e.target.value;save();};
 $('autoCal').checked=S.autoCal!==false;$('autoCal').onchange=e=>{S.autoCal=e.target.checked;save();};
 $('autoZero').checked=!!S.autoZero;$('autoZero').onchange=e=>{S.autoZero=e.target.checked;save();};
@@ -1281,8 +1321,8 @@ $('pageBtn').onclick=togglePage;
 {let sx=null,sy=0;$('v-nav').addEventListener('touchstart',e=>{const t=e.touches[0];sx=t.clientX;sy=t.clientY;},{passive:true});
  $('v-nav').addEventListener('touchend',e=>{if(sx==null||!document.documentElement.classList.contains('phone'))return;const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;sx=null;
    if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.5){const m=document.documentElement.classList.contains('more');if((dx<0&&!m)||(dx>0&&m))togglePage();}},{passive:true});}
-function showTab(v){document.documentElement.classList.remove('menu-open');document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',x.dataset.v===v));
-  document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);if(v==='stage')renderEditor();if(v==='rb'){if(!rbvSel||rbvSel.startsWith('st:'))rbvSel='st:'+act().id;renderRbView(true);}if(v==='set'){seedSyncT();showOff();}}
+function showTab(v){if(v!=='rb')rbPickMode=false;document.documentElement.classList.remove('menu-open');document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',x.dataset.v===v));
+  document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);if(v==='stage')renderEditor();if(v==='rb'){if(!rbvSel||rbvSel.startsWith('st:'))rbvSel='st:'+act().id;renderRbView(true);}if(v==='set'){seedSyncT();showOff();logInfo();}}
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.v));
 $('clockBtn').onclick=()=>showTab('set');
 async function wake(){try{if('wakeLock' in navigator)await navigator.wakeLock.request('screen');}catch(e){}}
