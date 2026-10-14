@@ -193,6 +193,8 @@ table input{min-width:84px}
 .rbt tr.rnow td{background:color-mix(in srgb,var(--accent) 16%,transparent)}
 .rbt tr.rmeas .paper{outline:3px solid var(--late)}
 .tag{display:inline-block;font-size:12px;font-weight:700;border-radius:6px;padding:2px 7px;margin:2px 0}
+.herebtn{margin-top:6px;min-height:44px;padding:6px 14px}
+.rbt .paper{cursor:pointer}
 .tag.m{background:var(--late);color:#fff}.tag.ok{color:var(--ok)}.tag.bad{background:var(--late-bg);color:var(--late)}.tag.now{background:var(--accent);color:var(--on-accent)}
 .brandbtn{border:0;background:transparent;padding:0;text-align:left;color:inherit}
 .chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -217,6 +219,14 @@ table input{min-width:84px}
   .slist{position:static;max-height:300px}
   .controls{grid-auto-flow:row;grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+/* ---------- navigation focus: tulips big, timing small; timing takes over in the last 15 s ---------- */
+.navgrid,#v-nav{transition:grid-template-columns .35s ease}
+:root:not(.phone).navfocus:not(.timefocus) .navgrid{grid-template-columns:minmax(0,.7fr) minmax(0,1.6fr)}
+:root.navfocus:not(.timefocus) .dev{min-height:0;padding:16px 18px}
+:root.navfocus:not(.timefocus) .big{font-size:clamp(56px,7vw,110px)}
+:root.navfocus:not(.timefocus) .tdist{font-size:84px}
+:root.timefocus .dev{box-shadow:0 0 0 4px var(--accent)}
+:root.timefocus #tulStack{opacity:.85}
 /* ---------- phone layout: only what the co-driver needs, no scrolling ---------- */
 .menubtn,.pagebtn{display:none}
 :root.phone .app{padding:calc(8px + env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));gap:8px;min-height:100dvh}
@@ -296,6 +306,19 @@ table input{min-width:84px}
 :root.phone.land:not(.more) #v-nav:not([hidden]){flex:1;min-height:0;align-content:stretch;grid-template-rows:minmax(0,1fr) minmax(0,1fr) auto}
 :root.phone.land #dev{justify-content:space-around}
 :root.phone.land #tulStack,:root.phone.land #tulStack>.card{min-height:0}
+:root.phone.land.navfocus:not(.timefocus):not(.more) #v-nav:not([hidden]){grid-template-columns:minmax(0,.62fr) minmax(0,1.5fr)}
+:root.phone.land.navfocus:not(.timefocus) #measCard{display:none!important}
+:root.phone.land.navfocus:not(.timefocus) #tulStack{grid-row:1 / 4}
+:root.phone.land.navfocus:not(.timefocus) .big{font-size:40px}
+:root.phone.land.navfocus:not(.timefocus) .mbig{font-size:24px}
+:root.phone.land.navfocus:not(.timefocus) .tdist{font-size:44px}
+:root.phone.land.navfocus:not(.timefocus) .titem .ti-body{display:flex;flex-direction:column;align-items:stretch;gap:6px}
+:root.phone:not(.land).navfocus:not(.timefocus) .navgrid{grid-template-rows:auto minmax(0,1fr)}
+:root.phone:not(.land).navfocus:not(.timefocus) .big{font-size:min(15vw,8vh)}
+:root.phone:not(.land).navfocus:not(.timefocus) .tstack{flex:1}
+:root.phone:not(.land).navfocus:not(.timefocus) .titem .tdist{font-size:48px}
+:root.phone:not(.land).navfocus:not(.timefocus) #ti1{display:flex!important}
+:root.phone:not(.land).navfocus:not(.timefocus) #ti1[hidden]{display:none!important}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -552,7 +575,7 @@ table input{min-width:84px}
             <div class="field" style="flex:1;min-width:150px"><label for="gpsMin">GPS: ελάχιστη ταχύτητα (km/h)</label><input id="gpsMin" class="num" inputmode="decimal"></div>
             <div class="field" style="flex:1;min-width:150px"><label for="gpsAcc">GPS: μέγιστο σφάλμα θέσης (m)</label><input id="gpsAcc" class="num" inputmode="decimal"></div>
           </div>
-          <p class="note">Με GPS η απόσταση βγαίνει από την ταχύτητα που μετράει ο δέκτης και βαθμονομείται όπως οι αισθητήρες. Κάτω από την ελάχιστη ταχύτητα δεν προσθέτει μέτρα. Η σύνδεση με το πραγματικό box (192.168.4.1, θύρα 11912) έρχεται με την έκδοση APK. <b>Έκδοση εφαρμογής: v3 (GPS: κλίση, έλεγχος βαθμονόμησης, φινίρισμα στις τουλίπες)</b></p>
+          <p class="note">Με GPS η απόσταση βγαίνει από την ταχύτητα που μετράει ο δέκτης και βαθμονομείται όπως οι αισθητήρες. Κάτω από την ελάχιστη ταχύτητα δεν προσθέτει μέτρα. Η σύνδεση με το πραγματικό box (192.168.4.1, θύρα 11912) έρχεται με την έκδοση APK. <b>Έκδοση εφαρμογής: v4 (έμφαση στην πλοήγηση, «Είμαι εδώ» στο roadbook)</b></p>
         </div>
       </div>
       <div class="stack">
@@ -564,6 +587,8 @@ table input{min-width:84px}
             <select id="layout"><option value="auto">Αυτόματα από το μέγεθος</option><option value="tablet">Tablet</option><option value="phone">Κινητό</option></select></div>
           <div class="field"><label for="navView">Κεντρική οθόνη</label>
             <select id="navView"><option value="auto">Αυτόματα από τον τύπο της ειδικής</option><option value="timing">Timing: χρόνος για το επόμενο σημείο</option><option value="speed">ΜΩΤ: απόκλιση από τον ιδανικό</option></select></div>
+          <div class="field"><label for="focus">Έμφαση οθόνης</label>
+            <select id="focus"><option value="nav">Πλοήγηση: μεγάλες τουλίπες, ο χρόνος μεγαλώνει στα τελευταία 15 s</option><option value="time">Χρόνος: μεγάλη η απόκλιση (όπως πριν)</option></select></div>
           <label class="check"><input type="checkbox" id="autoZero"> Αυτόματος μηδενισμός απόστασης στην εκκίνηση</label>
           <label class="check"><input type="checkbox" id="autoCal"> GPS: φινίρισμα συντελεστή στις τουλίπες (μόνο σε τμήματα &gt;1 km χωρίς φουρκέτες και αργά κομμάτια)</label>
           <div class="field"><label for="passMode">Πέρασμα σημείου (χρόνος ανά σημείο)</label>
@@ -590,8 +615,8 @@ table input{min-width:84px}
       <div class="field"><label for="shInput" id="shLabel">Σωστή απόσταση σε αυτό το σημείο (m)</label><input id="shInput" class="num" inputmode="decimal" autocomplete="off"></div>
       <div class="field" id="shF2" hidden><label for="shInput2" id="shLabel2"></label><input id="shInput2" class="num" inputmode="decimal" autocomplete="off"></div>
       <div class="btnrow" id="shQuick"></div>
-      <label class="check" id="shCheckRow" hidden><input type="checkbox" id="shCheck"> <span id="shCheckTxt"></span></label>
     </div>
+    <label class="check" id="shCheckRow" hidden><input type="checkbox" id="shCheck"> <span id="shCheckTxt"></span></label>
     <div class="btnrow"><button class="btn primary" id="shOk"></button><button class="btn" id="shCancel">Άκυρο</button></div>
   </div>
 </div>
@@ -610,7 +635,7 @@ const sgn=v=>v>0?'+':v<0?MINUS:'';
 
 /* ---------- state ---------- */
 const DEF={f1:0.43404950,f2:0.43369565,fGps:1,gpsMin:2,gpsAcc:25,source:'sim',sensMode:'avg',offset:0,day:false,snd:'voice',
-  tol:0.3,passMode:'auto',navView:'auto',layout:'auto',autoZero:true,autoCal:true,fGpsCal:null,rb:{sec:1,off:0},marks:[],calHist:[],stages:[],active:null};
+  tol:0.3,passMode:'auto',navView:'auto',layout:'auto',autoZero:true,autoCal:true,focus:'nav',fGpsCal:null,rb:{sec:1,off:0},marks:[],calHist:[],stages:[],active:null};
 let S;
 const LITE=!!window.NO_SIM;  // phone/GitHub build: real GPS only, no simulator, no example stages
 function load(){
@@ -795,6 +820,10 @@ $('shOk').onclick=()=>{if(!SH)return;
     r.total=Math.round(t*1000)/1000;r.partial=pv==null?null:Math.round(pv*1000)/1000;
     if(r.total===r._o.total&&r.partial===r._o.partial)delete S.rbEdits[SH.key];else S.rbEdits[SH.key]={total:r.total,partial:r.partial};
     save();closeSheet();renderRbView(false);toast('Τουλίπα '+r.n+' αποθηκεύτηκε');return;}
+  if(SH.kind==='here'){const [i,j]=SH.key.split(':').map(Number),r=BOOK[i].rows[j],st=act(),rb=stRb(st);
+    if($('shCheck').checked){const d=(r.total-(meters()/1000+(+rb.off||0)))*1000;rb.sec=i;L.corr+=d;save();closeSheet();tulipAnchor(r.total);showTab('nav');toast('Τουλίπα '+r.n+' · απόσταση '+sgn(d)+Math.round(Math.abs(d))+' m');}
+    else{rb.sec=i;rb.off=Math.round((r.total-meters()/1000)*1000)/1000;G.seg=null;save();closeSheet();showTab('nav');toast('Τουλίπες από την '+r.n+' · '+BOOK[i].name);}
+    return;}
   if(SH.kind==='tulip'){const sec=rbSec(),n=parseInt($('shInput').value,10),r=sec&&sec.rows.find(x=>x.n===n);
     if(!r){toast('Δεν υπάρχει τουλίπα '+($('shInput').value||''));return;}
     const st=act(),rb=stRb(st);
@@ -931,7 +960,7 @@ function renderRbView(scrollNow){
     return '<tr class="'+(isNow?'rnow ':'')+(m?'rmeas':'')+'" data-k="'+i+':'+j+'"><td class="n">'+r.n+'</td>'+
       '<td class="km num"><button class="kmbtn" data-edit="'+i+':'+j+'">'+fmt(r.total,3)+'</button></td><td class="pk num">'+(r.partial==null?'—':fmt(r.partial,3))+'</td>'+
       '<td><div class="paper"><img src="'+r.src+'" alt="Τουλίπα '+r.n+'" loading="lazy"><div class="ibox">'+(r.isrc?'<img src="'+r.isrc+'" alt="'+esc(r.info||'Information')+'" loading="lazy">':'<span>'+esc(r.info||'')+'</span>')+'</div></div></td>'+
-      '<td class="pk num">'+(r.regress==null?'—':fmt(r.regress,3))+'</td><td>'+(isNow?'<span class="tag now">ΕΠΟΜΕΝΗ</span><br>':'')+(m?'<span class="tag m">ΜΕΤΡΗΣΗ · σημείο '+m.i+'</span><br>':'')+(ed?'<span class="tag ed">διορθωμένη</span><br>':'')+(ok?'<span class="tag ok">✓ km</span>':'<span class="tag bad">✕ μερικά ≠ διαφορά</span>')+'</td></tr>';}).join('');
+      '<td class="pk num">'+(r.regress==null?'—':fmt(r.regress,3))+'</td><td>'+(isNow?'<span class="tag now">ΕΠΟΜΕΝΗ</span><br>':'')+(m?'<span class="tag m">ΜΕΤΡΗΣΗ · σημείο '+m.i+'</span><br>':'')+(ed?'<span class="tag ed">διορθωμένη</span><br>':'')+(ok?'<span class="tag ok">✓ km</span>':'<span class="tag bad">✕ μερικά ≠ διαφορά</span>')+'<br><button class="btn primary herebtn" data-here="'+i+':'+j+'">Είμαι εδώ</button></td></tr>';}).join('');
   $('rbvInfo').textContent=n+' τουλίπες'+(bad?' · '+bad+' με ασυμφωνία στα km':' · όλα τα μερικά km συμφωνούν')+(edited?' · '+edited+' διορθωμένες από σένα':'')+'. Πάτα τα km μιας τουλίπας για να τα διορθώσεις.';
   if(scrollNow&&scrollTo){const tr=$('rbvBody').querySelector('[data-k="'+scrollTo+'"]');if(tr)tr.scrollIntoView({block:'center'});}
 }
@@ -943,7 +972,17 @@ function editTulip(key){
   openSheet({kind:'rbedit',key,edit:true,value:fmt(r.total,3),label:'Συνολικά km',value2:r.partial==null?'':fmt(r.partial,3),label2:'Μερικά km',quick,ok:'Αποθήκευση',
     title:'Τουλίπα '+r.n+' · '+BOOK[i].name+' ('+BOOK[i].book+')',text:'Διόρθωσε τα km αν διαβάστηκαν λάθος. Η αλλαγή ισχύει αμέσως στην πλοήγηση και στις μετρήσεις.'});
 }
-$('rbvBody').onclick=e=>{const b=e.target.closest('[data-edit]');if(b)editTulip(b.dataset.edit);};
+$('rbvBody').onclick=e=>{const h=e.target.closest('[data-here]');if(h){hereTulip(h.dataset.here);return;}
+  const b=e.target.closest('[data-edit]');if(b){editTulip(b.dataset.edit);return;}
+  const tr=e.target.closest('tr[data-k]');if(tr&&e.target.closest('.paper'))hereTulip(tr.dataset.k);};
+// "I am at this tulip": works across sections (liaison → stage), the tulips follow from here
+function hereTulip(key){
+  if(SH)return;const [i,j]=key.split(':').map(Number),r=BOOK[i]&&BOOK[i].rows[j];if(!r)return;
+  const st=act(),same=stRb(st).sec===i;
+  openSheet({kind:'here',key,edit:false,ok:'Είμαι εδώ',check:'Διόρθωσε και τα μέτρα της ειδικής ('+st.name+')',
+    title:'Τουλίπα '+r.n+' · '+fmt(r.total,3)+' km',text:BOOK[i].name+(same?'':' — άλλο τμήμα από αυτό που ακολουθείς τώρα. Οι τουλίπες θα συνεχίσουν από εδώ.')});
+  $('shCheck').checked=same;
+}
 $('rbvSec').onchange=e=>{rbvSel=e.target.value;renderRbView(false);};
 $('rbvNow').onclick=()=>{rbvSel='st:'+act().id;renderRbView(true);};
 function setupRb(){
@@ -1025,6 +1064,9 @@ function render(force){
   $('mBig').innerHTML=Math.round(L.frozen?L.frozen.snap:ss.x)+'<small> m</small>';$('btnPrev').hidden=!pm;
   $('tiles').hidden=view==='timing';$('nextCard').hidden=view==='timing';$('measCard').hidden=view!=='timing';$('btnPrev2').hidden=!pm;
   renderStack(st,view);
+  {const r=document.documentElement,nav=(S.focus||'nav')==='nav';let tf=false;
+   if(nav&&view==='timing'&&ss.next&&st.start&&ss.elapsed!=null&&ss.elapsed>=0){const rq=st.start+ss.next.t*1000-now();tf=rq<=15000&&rq>-5000;}
+   r.classList.toggle('navfocus',nav);r.classList.toggle('timefocus',nav&&tf);}
   $('btnNext').disabled=!pm||ss.done||ss.elapsed==null||ss.elapsed<0;
   $('odo').innerHTML=fmt(ss.x/1000,3)+'<small> km</small>';
   $('elapsed').textContent=ss.elapsed==null?'—':mmss(ss.elapsed);
@@ -1193,6 +1235,7 @@ function applyDay(){document.documentElement.classList.toggle('day',!!S.day);$('
 $('dayMode').onchange=e=>{S.day=e.target.checked;save();applyDay();};
 $('snd').value=S.snd;$('snd').onchange=e=>{S.snd=e.target.value;save();if(S.snd==='voice')say('δέκα');else if(S.snd==='beep')beep(880,.12);};
 $('navView').value=S.navView;$('navView').onchange=e=>{S.navView=e.target.value;save();};
+$('focus').value=S.focus||'nav';$('focus').onchange=e=>{S.focus=e.target.value;save();};
 $('autoCal').checked=S.autoCal!==false;$('autoCal').onchange=e=>{S.autoCal=e.target.checked;save();};
 $('autoZero').checked=!!S.autoZero;$('autoZero').onchange=e=>{S.autoZero=e.target.checked;save();};
 $('passMode').value=S.passMode;$('passMode').onchange=e=>{S.passMode=e.target.value;save();};
