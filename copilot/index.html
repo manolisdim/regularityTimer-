@@ -930,16 +930,18 @@ function measureMap(st,sec){
     if(best>=0&&bd<=0.025&&!m.has(best))m.set(best,{i,t:p[i].t,d:p[i].d});}
   return m;
 }
-const TUL_HOLD=0.2;
+const TUL_HOLD=0.06,TUL_NEAR=0.15;   // switch ~60 m after a tulip; show the next one too when it is closer than 150 m
 function stackList(st,view){
   const sec=rbSec();if(!sec)return[];
   const x=bookKm(),rows=sec.rows,mm=measureMap(st,sec),out=[],max=view==='timing'?3:2;
   // a measurement tulip stays on screen until 5 s after its ideal time
   if(st.start){let held=null;mm.forEach((v,j)=>{if(rows[j].total<=x+0.0005&&now()<st.start+v.t*1000+5000)held=j;});if(held!=null)out.push({j:held,held:true});}
-  // a tulip just passed by the meters stays on screen for TUL_HOLD km more: if the GPS reads a little long, it is not lost before you reach it
+  // a tulip just passed by the meters stays on top for TUL_HOLD km (~60 m) more: if the GPS reads a little long, it is not lost before you reach it
   if(!out.length){let pj=-1;rows.forEach((r,j)=>{if(r.total<=x+0.0005&&x-r.total<=TUL_HOLD)pj=j;});if(pj>0)out.push({j:pj,passed:true});}
   const i0=rows.findIndex(r=>r.total>x+0.0005);
-  if(i0>=0){out.push({j:i0});for(let j=i0+1;j<rows.length&&out.length<max&&rows[j].total-rows[j-1].total<0.150;j++)out.push({j});}
+  // the next tulip joins the one on top only when it is close (under TUL_NEAR km after it), so a near tulip is never missed
+  if(i0>=0){if(!(out.length&&out[0].passed&&rows[i0].total-rows[out[0].j].total>=TUL_NEAR))out.push({j:i0});
+    for(let j=i0+1;j<rows.length&&out.length<max&&rows[j].total-rows[j-1].total<TUL_NEAR;j++)out.push({j});}
   return out.slice(0,max).map(o=>Object.assign(o,{r:rows[o.j],m:mm.get(o.j)||null}));
 }
 function renderStack(st,view){
