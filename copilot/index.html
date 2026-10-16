@@ -673,6 +673,10 @@ const p2=x=>String(x).padStart(2,'0');
 function hms(ms,tenths){const d=new Date(ms);let s=p2(d.getHours())+':'+p2(d.getMinutes())+':'+p2(d.getSeconds());if(tenths)s+='.'+Math.floor(d.getMilliseconds()/100);return s;}
 function mmss(sec){const neg=sec<0;sec=Math.abs(sec);const m=Math.floor(sec/60),s=sec-m*60;return (neg?MINUS:'')+m+':'+(s<10?'0':'')+fmt(s,1);}
 function secTxt(sec){return Math.abs(sec)<60?fmt(sec,1).replace('-',MINUS):mmss(sec);}
+// countdowns: whole seconds only — counting down rounds up (shows 1 until the moment), lateness rounds down
+// elapsed time: before the start it is a countdown, so whole seconds (−0:05); after the start tenths as before
+function elTxt(sec){if(sec>=0)return mmss(sec);const s=Math.ceil(-sec-1e-6),m=Math.floor(s/60),r=s-m*60;return MINUS+m+':'+(r<10?'0':'')+r;}
+function cdTxt(sec,late){const s=late?Math.floor(sec):Math.ceil(sec-1e-6);if(s<60)return String(s);const m=Math.floor(s/60),r=s-m*60;return m+':'+(r<10?'0':'')+r;}
 function parseTime(str){str=String(str).trim().replace(',','.').replace(MINUS,'-');if(!str)return NaN;const p=str.split(':').map(Number);if(p.some(isNaN))return NaN;return p.reduce((a,v)=>a*60+v,0);}
 function parseHMS(str){const p=String(str).trim().split(/[:.\s]/).map(Number);if(p.length<2||p.some(isNaN))return null;const d=new Date(now());d.setHours(p[0],p[1],p[2]||0,0);return d.getTime();}
 const num=v=>+String(v).trim().replace(',','.').replace(MINUS,'-');
@@ -1049,7 +1053,7 @@ function renderMeas(ss,r){
   const nx=ss.p[q],prev=ss.p[q-1],rem=nx.d-ss.x,rq=st.start?st.start+nx.t*1000-now():null;
   $('mLabel').textContent=(q>ss.k?'Μετά · ':'')+'σημείο '+q+' · '+fmt(nx.d/1000,3)+' km · στα '+secTxt(nx.t)+' s';
   $('mDist').innerHTML='σε '+Math.max(0,Math.round(rem))+'<small> m</small>';
-  $('mTime').textContent=rq==null?'—':rq>=0?'σε '+secTxt(rq/1000)+' s':'καθυστέρηση +'+secTxt(-rq/1000)+' s';
+  $('mTime').textContent=rq==null?'—':rq>=0?'σε '+cdTxt(rq/1000)+' s':'καθυστέρηση +'+cdTxt(-rq/1000,true)+' s';
   $('mBar').style.width=Math.max(0,Math.min(100,(1-rem/(nx.d-prev.d))*100))+'%';
   const sec=rbSec();let tul=null;if(sec)measureMap(st,sec).forEach((v,j)=>{if(v.i===q)tul=sec.rows[j];});
   const k=tul?stRb(st).sec+':'+tul.n:'';
@@ -1099,11 +1103,11 @@ function render(force){
    r.classList.toggle('navfocus',nav);r.classList.toggle('timefocus',nav&&tf);}
   $('btnNext').disabled=!pm||ss.done||ss.elapsed==null||ss.elapsed<0;
   $('odo').innerHTML=fmt(ss.x/1000,3)+'<small> km</small>';
-  $('elapsed').textContent=ss.elapsed==null?'—':mmss(ss.elapsed);
+  $('elapsed').textContent=ss.elapsed==null?'—':elTxt(ss.elapsed);
   if(pm){const last=(st.idx||0)-1,d=last>=0?passDev(st,last):null;$('t3label').textContent='Τελευταίο σημείο';
     $('t3').innerHTML=d==null?'—':'<span class="'+(Math.abs(d)<=(+S.tol||0.3)?'d-ok':d>0?'d-late':'d-early')+'">'+sgn(d)+fmt(Math.abs(d),1)+'</span><small> s</small>';}
   else{$('t3label').textContent='km/h · στόχος';const tv=segmentSpeed(st,ss.x);$('t3').innerHTML=Math.max(0,Math.round(L.speed))+'<small> / '+(tv?Math.round(tv):'—')+'</small>';}
-  {const last=(st.idx||0)-1,d=pm&&last>=0?passDev(st,last):null;$('fOdo').textContent=fmt(ss.x/1000,3)+' km';$('fEl').textContent=ss.elapsed==null?'—':mmss(ss.elapsed);$('fLast').textContent=pm?(d==null?'—':sgn(d)+fmt(Math.abs(d),1)+' s'):Math.max(0,Math.round(L.speed))+' km/h';}
+  {const last=(st.idx||0)-1,d=pm&&last>=0?passDev(st,last):null;$('fOdo').textContent=fmt(ss.x/1000,3)+' km';$('fEl').textContent=ss.elapsed==null?'—':elTxt(ss.elapsed);$('fLast').textContent=pm?(d==null?'—':sgn(d)+fmt(Math.abs(d),1)+' s'):Math.max(0,Math.round(L.speed))+' km/h';}
   L.prevX=ss.x;L.prevT=now();
 
   setNext(ss,pm);
@@ -1122,7 +1126,7 @@ function render(force){
   if(view==='timing'){
     const alert=r>0&&r<=10000;
     setDev(alert?'alert':r<0?'late':'idle','Επόμενη μέτρηση · σημείο '+ss.k+' / '+ss.n+' · '+ss.next.d+' m',r<0?'ΚΑΘΥΣΤΕΡΗΣΗ':lv.verdict,
-      (r>=0?secTxt(r/1000):'+'+secTxt(-r/1000))+'<small>s</small>',
+      (r>=0?cdTxt(r/1000):'+'+cdTxt(-r/1000,true))+'<small>s</small>',
       'Τώρα: <span class="'+(alert?'':'d-'+lv.tone)+'">'+sgn(lv.d)+fmt(Math.abs(lv.d),1)+' s</span> · '+lv.mtxt,'',lv.pct,alert||r<0?null:lv.tone);
     renderMeas(ss,r);
   }else{
