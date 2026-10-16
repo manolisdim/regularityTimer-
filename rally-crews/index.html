@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e1013">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Crews">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Regularity Crews</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky input bar · crew cards (overall) · one compact table per stage, crews as columns */
+:root{
+  --bg:#0e1013; --panel:#171a1f; --line:#272b33; --fg:#eceef2; --muted:#8a919e;
+  --accent:#e8322c; --good:#4fd17f; --gold:#f5c451;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root{--bg:#f2f3f5;--panel:#ffffff;--line:#dde0e6;--fg:#15181d;--muted:#5d6572;--accent:#d0241e;--good:#12884a;--gold:#9a6a06;color-scheme:light}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.4 var(--body);font-variant-numeric:tabular-nums;padding-bottom:env(safe-area-inset-bottom,0)}
+
+/* sticky bar */
+.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px}
+.brand{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.brand b{font:700 20px/1 var(--display);letter-spacing:.04em;text-transform:uppercase}
+.brand b span{color:var(--accent)}
+.brand .status{margin-left:auto;font-size:12px;color:var(--muted);text-align:right}
+.status.err{color:var(--accent)}
+.status.warn{color:var(--gold)}
+.status.ok::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:5px;vertical-align:1px}
+form{display:grid;grid-template-columns:5.5em 1fr 48px;gap:6px}
+input{width:100%;min-width:0;height:48px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:0 12px;font:600 18px var(--body)}
+input::placeholder{color:var(--muted);font-weight:400}
+input:focus-visible,button:focus-visible,.switch:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+button{height:48px;border:0;border-radius:10px;background:var(--accent);color:#fff;font:700 15px var(--display);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;display:grid;place-items:center}
+button svg{width:22px;height:22px}
+.row2{display:flex;align-items:center;gap:10px;margin-top:8px}
+.switch{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);border-radius:99px;padding:2px}
+.switch input{appearance:none;-webkit-appearance:none;width:42px;height:24px;padding:0;border-radius:99px;background:var(--line);border:0;position:relative;cursor:pointer;flex:none}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s}
+.switch input:checked{background:var(--accent)}
+.switch input:checked::after{transform:translateX(18px)}
+.refresh{margin-left:auto;height:36px;padding:0 14px;background:var(--panel);color:var(--fg);border:1px solid var(--line);font-size:14px}
+
+main{padding:12px 12px 32px;max-width:720px;margin:0 auto}
+.event{font:600 15px/1.2 var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:4px 2px 10px}
+
+/* crew cards = overall */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.chip{flex:none;height:36px;min-width:52px;padding:0 12px;border-radius:99px;background:var(--panel);color:var(--fg);border:1px solid var(--line);font:600 15px var(--display);letter-spacing:.05em;text-transform:uppercase}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.card .hd{display:flex;align-items:center;gap:8px}
+.no{display:inline-grid;place-items:center;min-width:34px;height:28px;padding:0 6px;border-radius:7px;background:var(--accent);color:#fff;font:700 18px var(--display)}
+.card .nm{font-weight:600;font-size:15px;line-height:1.15;min-width:0;overflow-wrap:break-word;hyphens:auto}
+.card .car{font-size:12px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.card .ov{display:flex;align-items:baseline;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.card .ov .pos{font:700 26px/1 var(--display);color:var(--gold)}
+.card .ov small{font-size:12px;color:var(--muted)}
+.card.missing .nm{color:var(--muted)}
+
+/* stages */
+h2{display:flex;align-items:center;gap:8px;margin:22px 2px 8px;font:700 22px/1 var(--display);letter-spacing:.04em;text-transform:uppercase}
+.tag{font:600 11px var(--body);letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.tag.live{border-color:var(--accent);color:var(--accent)}
+.tag.live::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:5px;vertical-align:1px;animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.tag.live::before{animation:none}}
+h2 .cnt{margin-left:auto;font:500 12px var(--body);letter-spacing:0;text-transform:none;color:var(--muted)}
+.tbl{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 8px;text-align:center;border-bottom:1px solid var(--line)}
+tr:last-child td,tr:last-child th{border-bottom:0}
+thead th{padding:8px}
+thead .no{min-width:30px;height:26px;font-size:16px}
+tbody th{text-align:left;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap;width:1%;padding-left:12px}
+td .v{font-size:18px;font-weight:600}
+td .s{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+td.best .v{color:var(--good)}
+tr.total td .v{font:700 22px var(--display)}
+tr.rank td{font:700 20px var(--display);color:var(--gold)}
+tr.total,tr.rank{background:color-mix(in srgb,var(--bg) 40%,transparent)}
+.dash{color:var(--muted)}
+
+.set{margin-top:8px;font-size:14px;color:var(--muted)}
+.set summary{cursor:pointer;padding:4px 0}
+.setgrid{display:grid;grid-template-columns:minmax(0,10em);gap:8px;margin-top:6px}
+.setgrid label{display:flex;flex-direction:column;gap:4px;font-size:12px}
+.setgrid input,select{height:42px;font-size:16px}
+select{width:100%;min-width:0;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:0 10px;font:500 15px var(--body)}
+.set p{margin:8px 0 2px;font-size:12px;line-height:1.4}
+.alerts{display:grid;gap:8px;margin-bottom:14px}
+.advice{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:10px 12px}
+.advice.live{border-left-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
+.advice .big{font:700 30px/1 var(--display);white-space:nowrap}
+.advice .big small{display:block;font:600 11px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+.advice .txt{font-size:14px;line-height:1.35;min-width:0}
+.advice .txt b{font-weight:700}
+tbody th.flag{color:var(--gold)}
+.refresh.pick{margin-left:auto}
+.refresh.pick + .refresh{margin-left:0;width:40px;padding:0;font-size:18px}
+.sheet{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column}
+.sheet[hidden]{display:none!important}
+.sheet-top{padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px;border-bottom:1px solid var(--line)}
+.sheet-hd{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.sheet-hd b{font:700 22px/1 var(--display);letter-spacing:.04em;text-transform:uppercase}
+.sheet-hd .cnt{font-size:13px;color:var(--muted)}
+.done{margin-left:auto;height:38px;padding:0 16px}
+.sheet-tools{display:flex;gap:6px}
+.sheet-tools input{flex:1;height:44px}
+.sheet-tools .refresh{height:44px;margin:0}
+.plist{flex:1;overflow-y:auto;padding:4px 12px calc(env(safe-area-inset-bottom,0px) + 16px);-webkit-overflow-scrolling:touch}
+.prow{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.prow .no{flex:none}
+.prow .who{flex:1;min-width:0;line-height:1.25}
+.prow .who small{display:block;color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.prow .ppos{flex:none;font:700 16px var(--display);color:var(--gold);min-width:34px;text-align:right}
+.prow input{appearance:none;-webkit-appearance:none;flex:none;width:46px;height:28px;padding:0;border-radius:99px;background:var(--line);border:0;position:relative;cursor:pointer}
+.prow input::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .15s}
+.prow input:checked{background:var(--accent)}
+.prow input:checked::after{transform:translateX(18px)}
+.prow.on .who{font-weight:600}
+body.locked{overflow:hidden}
+.empty{padding:28px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;margin-top:8px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><b>Regularity <span>Crews</span></b><span id="status" class="status"></span></div>
+  <form id="f" autocomplete="off">
+    <input id="rally" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="Αγώνας" aria-label="Αριθμός αγώνα" enterkeyhint="next">
+    <input id="crews" type="text" inputmode="decimal" placeholder="Πληρώματα π.χ. 1,6,10" aria-label="Αριθμοί πληρωμάτων" enterkeyhint="go">
+    <button type="submit" aria-label="Εμφάνιση"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+  </form>
+  <div class="row2">
+    <label class="switch" for="auto"><input id="auto" type="checkbox"> Live · 10″</label>
+    <button type="button" class="refresh pick" id="openPick">Λίστα πληρωμάτων</button>
+    <button type="button" class="refresh" id="refresh" aria-label="Ανανέωση">↻</button>
+  </div>
+  <details class="set">
+    <summary>Ειδοποίηση τάσης</summary>
+    <div class="setgrid">
+      <label for="thr">Όριο (δευτ.)
+        <input id="thr" type="text" inputmode="decimal" value="1.0">
+      </label>
+    </div>
+    <p>Εμφανίζεται όταν όλα τα πληρώματά σου που πέρασαν ένα σημείο (τουλάχιστον 2) έχουν απόκλιση προς την ίδια κατεύθυνση, ίση ή μεγαλύτερη από το όριο.</p>
+  </details>
+</div>
+
+<div id="picker" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+  <div class="sheet-top">
+    <div class="sheet-hd"><b id="pickTitle">Πληρώματα</b><span id="pickCount" class="cnt"></span><button type="button" id="pickDone" class="done">Τέλος</button></div>
+    <div class="sheet-tools">
+      <input id="pickSearch" type="search" placeholder="Αναζήτηση αριθμού ή ονόματος" aria-label="Αναζήτηση πληρώματος">
+      <button type="button" id="pickClear" class="refresh">Καμία</button>
+    </div>
+  </div>
+  <div id="pickList" class="plist"></div>
+</div>
+
+<main id="out">
+  <div class="empty">Γράψε τον αριθμό του αγώνα στο Anube (π.χ. <b>9158</b>)<br>και τα πληρώματα (π.χ. <b>1, 6, 10</b>).</div>
+</main>
+
+<script>
+document.documentElement.lang = "el";
+// Αν το Anube μπλοκάρει την κλήση (CORS), βάλε εδώ ένα proxy, π.χ. "https://my-proxy.workers.dev/?url="
+const PROXY = "";
+const BASE = "https://rest.anube.es/rallyrest/default/api/";
+
+const $ = (s) => document.querySelector(s);
+const rallyEl = $("#rally"), crewsEl = $("#crews"), autoEl = $("#auto"), out = $("#out"), statusEl = $("#status");
+
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const n1 = (v) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+const fmt = (n) => n == null ? '<span class="dash">–</span>' : n.toFixed(1);
+const signed = (n) => n == null ? "" : (n > 0 ? "+" : "") + n.toFixed(1) + "″";
+const surname = (s) => String(s || "").split(",")[0].trim();
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : v; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+};
+
+function api(path, num){
+  const url = BASE + path + "/" + num + ".json?rally=rally" + num + "&port=auto";
+  const ctl = typeof AbortController === "function" ? new AbortController() : null;
+  const to = ctl ? setTimeout(() => ctl.abort(), 8000) : null;
+  return fetch(PROXY ? PROXY + encodeURIComponent(url) : url, {cache:"no-store", signal: ctl ? ctl.signal : undefined})
+    .then(r => { if (!r.ok) throw new Error(path + ": HTTP " + r.status); return r.json(); })
+    .finally(() => to && clearTimeout(to));
+}
+
+function build(P, S, T, C, R){
+  const d = (x) => (x && x.event && x.event.data) || {};
+  const byDorsal = {};
+  (d(P).participants || []).forEach(p => byDorsal[String(p.dorsal)] = p);
+  const sections = (d(S).sections || []).filter(s => !Number(s.oculto));
+  const cd = d(C);
+  const cls = {}; (cd.classification || []).forEach(c => cls[c.participant] = c);
+  const subNames = cd.sections || [];
+  const subs = {}; (cd.subtotals || []).forEach(r => subs[r[0]] = String(r[1] || "").split(","));
+  const score = {};
+  (d(T).total_scoring || []).forEach(r => {
+    (score[r.section] = score[r.section] || {})[r.participant] = {
+      sc: String(r.scoring || "").split(",").map(n1),
+      se: String(r.seconds || "").split(",").map(n1)
+    };
+  });
+  const stages = sections.map(s => {
+    const nCtrl = String(s.controlpoints || "").split(",").filter(Boolean).length;
+    const idx = subNames.indexOf(s.name);
+    const rows = score[s.section] || {};
+    const totals = {};
+    Object.keys(rows).forEach(pid => {
+      let t = idx >= 0 && subs[pid] ? n1(subs[pid][idx]) : null;
+      if (t == null){ const v = rows[pid].sc.filter(x => x != null); t = v.length ? v.reduce((a,b)=>a+b,0) : null; }
+      if (t != null) totals[pid] = t;
+    });
+    const secTot = {};
+    Object.keys(rows).forEach(pid => {
+      const v = rows[pid].se.filter(x => x != null);
+      if (v.length) secTot[pid] = v.reduce((a, b) => a + Math.abs(b), 0);
+    });
+    const all = Object.values(totals);
+    return { name: s.name, closed: Number(s.closed) === 1, cols: Math.max(0, nCtrl - 1), rows, totals, secTot,
+             rank: pid => totals[pid] == null ? null : 1 + all.filter(v => v < totals[pid] - 1e-9).length,
+             field: all.length };
+  });
+  const sub = d(R).subrally || d(R);
+  const title = (sub && (sub.name || sub.nombre || sub.title)) || "";
+  return { byDorsal, cls, stages, title, live: stages.some(s => !s.closed), total: Object.keys(cls).length };
+}
+
+let data = null, dataFor = null, timer = null, busy = false, lastSig = null, lastOk = null, lastFail = false;
+
+// Τελευταία δεδομένα κάθε αγώνα αποθηκευμένα στη συσκευή
+const cacheKey = (n) => "rcData_" + n;
+function saveCache(num, raw){
+  try { localStorage.setItem(cacheKey(num), JSON.stringify({ t: Date.now(), raw })); }
+  catch(e){ try { Object.keys(localStorage).filter(k => k.startsWith("rcData_") && k !== cacheKey(num)).forEach(k => localStorage.removeItem(k)); localStorage.setItem(cacheKey(num), JSON.stringify({ t: Date.now(), raw })); } catch(e2){} }
+}
+function readCache(num){ try { return JSON.parse(localStorage.getItem(cacheKey(num))); } catch(e){ return null; } }
+const hhmm = (t) => new Date(t).toLocaleTimeString("el-GR", {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+function ago(t){
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  return s < 60 ? s + "″ πριν" : s < 3600 ? Math.floor(s / 60) + "′ πριν" : "στις " + hhmm(t);
+}
+function showStatus(){
+  if (!lastOk){ return; }
+  if (lastFail){
+    statusEl.className = "status warn";
+    statusEl.textContent = (navigator.onLine === false ? "Χωρίς internet" : "Χωρίς απάντηση") + " · δεδομένα " + ago(lastOk);
+  } else {
+    statusEl.className = "status ok";
+    statusEl.textContent = hhmm(lastOk);
+  }
+}
+setInterval(showStatus, 5000);
+
+// Ξαναζωγραφίζει μόνο όταν αλλάξουν τα αποτελέσματα (όχι οι θέσεις GPS)
+function applyRaw(num, raw){
+  const sig = JSON.stringify([raw.S, raw.T, raw.C]);
+  if (dataFor === num && sig === lastSig && data) return false;
+  if (dataFor !== num) stageSel = store.get("rcStage_" + num, "auto");
+  data = build(raw.P, raw.S, raw.T, raw.C, raw.R); dataFor = num; lastSig = sig;
+  render();
+  return true;
+}
+
+async function load(){
+  const num = rallyEl.value.trim();
+  if (!/^\d+$/.test(num)) { statusEl.className = "status err"; statusEl.textContent = "Γράψε αριθμό αγώνα"; return; }
+  if (busy) return;
+  busy = true;
+  if (dataFor !== num){
+    data = null; lastSig = null; lastOk = null; lastFail = false;
+    const c = readCache(num);
+    if (c && c.raw){ applyRaw(num, c.raw); lastOk = c.t; lastFail = true; showStatus(); }
+  }
+  if (!data){ statusEl.className = "status"; statusEl.textContent = "Φόρτωση…"; }
+  try {
+    const [P, S, T, C, R] = await Promise.all([
+      api("participants", num), api("sections", num), api("total_scoring", num), api("classification", num),
+      api("subrally", num).catch(() => null)
+    ]);
+    const raw = { P, S, T, C, R };
+    applyRaw(num, raw);
+    saveCache(num, raw);
+    lastOk = Date.now(); lastFail = false; showStatus();
+    if (data.live && !autoEl.checked){ autoEl.checked = true; setAuto(true); }
+  } catch(e){
+    lastFail = true;
+    if (data){ showStatus(); }
+    else {
+      statusEl.className = "status err";
+      const offline = navigator.onLine === false;
+      statusEl.textContent = offline ? "Χωρίς internet" : "Σφάλμα";
+      out.innerHTML = `<div class="empty">${offline
+        ? "Δεν υπάρχει σύνδεση και δεν υπάρχουν αποθηκευμένα δεδομένα για τον αγώνα " + esc(num) + "."
+        : "Δεν ήρθαν δεδομένα για τον αγώνα " + esc(num) + ".<br>" + esc(e.message || "Ελέγξτε τον αριθμό.")}</div>`;
+    }
+  } finally {
+    busy = false;
+  }
+}
+
+function render(){
+  if (!data) return;
+  const list = crewsEl.value.split(/[\s,;.]+/).map(s => s.trim()).filter(Boolean);
+  if (!list.length){ out.innerHTML = '<div class="empty">Γράψε αριθμούς πληρωμάτων, π.χ. 1, 6, 10.</div>'; return; }
+  const crews = list.map(d => ({ d, p: data.byDorsal[d] }));
+
+  let h = data.title ? `<div class="event">${esc(data.title)}</div>` : "";
+
+  // Κάρτες πληρωμάτων με γενική κατάταξη
+  h += `<div class="cards">`;
+  crews.forEach(c => {
+    if (!c.p){ h += `<div class="card missing"><div class="hd"><span class="no">${esc(c.d)}</span><span class="nm">Δεν βρέθηκε</span></div></div>`; return; }
+    const k = data.cls[c.p.participant];
+    const pos = k ? (k.dnq ? esc(k.dnq) : k.puesto + "ος") : "–";
+    const secs = data.stages.map(st => st.secTot[c.p.participant]).filter(v => v != null);
+    const secSum = secs.length ? secs.reduce((a, b) => a + b, 0) : null;
+    h += `<div class="card"><div class="hd"><span class="no">${esc(c.d)}</span><span class="nm">${esc(surname(c.p.piloto))}${c.p.copiloto ? "<br>" + esc(surname(c.p.copiloto)) : ""}</span></div>`
+      + `<div class="car">${esc(c.p.vehiculo_modelo || "")}${c.p.vehiculo_anho ? " · " + esc(c.p.vehiculo_anho) : ""}</div>`
+      + `<div class="ov"><span class="pos">${pos}</span><small>${secSum != null ? secSum.toFixed(1) + "″ συνολικά" : ""}${k && Number(k.num_ceros) ? " · " + esc(k.num_ceros) + " μηδ." : ""}</small></div></div>`;
+  });
+  h += `</div>`;
+
+  // Stages: γραμμές = σημεία, στήλες = πληρώματα
+  const shown = crews.filter(c => c.p);
+  const alerts = [];
+  // Επιλογή stage: όλες, η τρέχουσα (ακολουθεί αυτόματα) ή μία συγκεκριμένη
+  const cur = data.stages.find(s => !s.closed) || data.stages[data.stages.length - 1];
+  let sel = stageSel;
+  if (sel !== "all" && sel !== "auto" && !data.stages.some(s => s.name === sel)) sel = "auto";
+  const visible = sel === "all" ? data.stages : sel === "auto" ? (cur ? [cur] : []) : data.stages.filter(s => s.name === sel);
+  const chip = (val, label) => `<button type="button" class="chip ${sel === val ? "on" : ""}" data-stage="${esc(val)}" aria-pressed="${sel === val}">${label}</button>`;
+  const chips = `<div class="chips" role="group" aria-label="Επιλογή stage">${chip("auto", "Τρέχουσα" + (cur ? " · " + esc(cur.name) : ""))}${chip("all", "Όλες")}${data.stages.map(s => chip(s.name, esc(s.name))).join("")}</div>`;
+
+  data.stages.forEach((st, si) => {
+    if (!visible.includes(st)) return;
+    h += `<h2>${esc(st.name)} <span class="tag ${st.closed ? "" : "live"}">${st.closed ? "Τελικό" : "Live"}</span><span class="cnt">${st.field} με χρόνο</span></h2>`;
+    if (!shown.length) return;
+    h += `<div class="tbl"><table><thead><tr><th></th>${shown.map(c => `<th><span class="no">${esc(c.d)}</span></th>`).join("")}</tr></thead><tbody>`;
+    for (let i = 1; i <= st.cols; i++){
+      const vals = shown.map(c => { const r = st.rows[c.p.participant]; return r ? r.se[i] : null; });
+      const nums = vals.filter(v => v != null).map(Math.abs);
+      const best = nums.length > 1 ? Math.min(...nums) : null;
+      const tr = trend(vals, shown.map(c => c.d));
+      if (tr) alerts.push({ key: st.name + "/" + i, stage: st.name, point: i, live: !st.closed, order: si * 100 + i, ...tr });
+      h += `<tr><th class="${tr ? "flag" : ""}">${tr ? "⚑ " : ""}Σημ. ${i}</th>` + shown.map((c, j) => {
+        const v = vals[j];
+        return `<td class="${v != null && Math.abs(v) === best ? "best" : ""}"><span class="v">${v == null ? fmt(null) : signed(v)}</span></td>`;
+      }).join("") + `</tr>`;
+    }
+    const tots = shown.map(c => st.secTot[c.p.participant] ?? null);
+    const tn = tots.filter(v => v != null);
+    const bestT = tn.length > 1 ? Math.min(...tn) : null;
+    h += `<tr class="total"><th>Σύνολο</th>` + tots.map(t => `<td class="${t != null && t === bestT ? "best" : ""}"><span class="v">${t == null ? fmt(null) : t.toFixed(1) + "″"}</span></td>`).join("") + `</tr>`;
+    h += `<tr class="rank"><th>Θέση</th>` + shown.map(c => { const rk = st.rank(c.p.participant); return `<td>${rk == null ? '<span class="dash">–</span>' : rk + "ος"}</td>`; }).join("") + `</tr>`;
+    h += `</tbody></table></div>`;
+  });
+
+  // Ειδοποιήσεις τάσης: live πρώτα, μετά τα πιο πρόσφατα σημεία
+  alerts.sort((a, b) => (b.live - a.live) || (b.order - a.order));
+  const alertHtml = alerts.length ? `<div class="alerts">${alerts.map(a => `
+    <div class="advice ${a.live ? "live" : ""}">
+      <div class="big">${a.corr.toFixed(1)}″<small>${a.faster ? "πιο γρήγορα" : "πιο αργά"}</small></div>
+      <div class="txt"><b>${esc(a.stage)} · Σημείο ${a.point}</b><br>${a.out.length ? `${a.n} από ${a.total} πληρώματα` : `Και τα ${a.n} πληρώματα`} πέρασαν ${a.faster ? "αργά" : "νωρίς"} (${a.lo === a.hi ? a.lo.toFixed(1) : a.lo.toFixed(1) + "–" + a.hi.toFixed(1)}″). Πέρνα περίπου ${a.corr.toFixed(1)}″ ${a.faster ? "πιο γρήγορα" : "πιο αργά"}.${a.out.length ? `<br><span class="muted">Εξαιρέθηκε: ${a.out.map(p => "#" + esc(p.d) + " (" + signed(p.v) + ")").join(", ")}</span>` : ""}</div>
+    </div>`).join("")}</div>` : "";
+  out.innerHTML = h.replace('<div class="cards">', chips + alertHtml + '<div class="cards">');
+
+  // Δόνηση όταν εμφανίζεται νέα live ειδοποίηση
+  const liveKeys = alerts.filter(a => a.live).map(a => a.key);
+  if (seenAlerts && liveKeys.some(k => !seenAlerts.has(k))) { try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch(e){} }
+  seenAlerts = new Set(liveKeys);
+}
+
+let seenAlerts = null;
+let stageSel = "auto";
+out.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-stage]");
+  if (!b) return;
+  stageSel = b.dataset.stage;
+  if (dataFor) store.set("rcStage_" + dataFor, stageSel);
+  render();
+});
+const thrEl = $("#thr");
+thrEl.value = store.get("rcThr", "1.0");
+const threshold = () => { const t = parseFloat(String(thrEl.value).replace(",", ".")); return isNaN(t) || t <= 0 ? 1 : t; };
+
+const OUTLIER = 3; // δευτ. απόσταση από τη μεσαία τιμή για να θεωρηθεί κάποιος «εκτός»
+const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2; };
+
+function trend(vals, labels){
+  let pts = vals.map((v, i) => ({ v, d: labels[i] })).filter(p => p.v != null);
+  if (pts.length < 2) return null;
+  // Βγάζουμε όσους απέχουν πολύ από τους υπόλοιπους (2 περάσματα, για σταθερότητα)
+  let kept = pts;
+  for (let k = 0; k < 2; k++){
+    const m = median(kept.map(p => p.v));
+    kept = pts.filter(p => Math.abs(p.v - m) <= OUTLIER);
+    if (kept.length < 2) return null;
+  }
+  const v = kept.map(p => p.v);
+  const out = pts.filter(p => !kept.includes(p));
+  const t = threshold();
+  if (!(v.every(x => x >= t) || v.every(x => x <= -t))) return null;
+  const med = median(v);
+  const abs = v.map(Math.abs);
+  const late = med > 0; // στο Anube: + = αργά, − = νωρίς
+  return { n: v.length, total: pts.length, out, corr: Math.abs(med), lo: Math.min(...abs), hi: Math.max(...abs), faster: late };
+}
+thrEl.addEventListener("change", () => { store.set("rcThr", thrEl.value); render(); });
+
+// Live: ανανέωση κάθε 10″ και η οθόνη μένει αναμμένη
+let wake = null;
+async function keepAwake(on){
+  try {
+    if (on && !wake && navigator.wakeLock && !document.hidden){ wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release", () => { wake = null; }); }
+    if (!on && wake){ await wake.release(); wake = null; }
+  } catch(e){ wake = null; }
+}
+function setAuto(on){
+  clearInterval(timer); timer = on ? setInterval(load, 10000) : null;
+  keepAwake(on);
+}
+
+function submit(){
+  const r = rallyEl.value.replace(/\D/g, ""); rallyEl.value = r;
+  store.set("rcRally", r); store.set("rcCrews_" + r, crewsEl.value);
+  try {
+    const u = new URL(location.href);
+    u.searchParams.set("rally", r); u.searchParams.set("crews", crewsEl.value.replace(/\s+/g, ""));
+    history.replaceState(null, "", u);
+  } catch(e){}
+  if (document.activeElement) document.activeElement.blur();
+  if (dataFor === r) render(); else load();
+}
+
+$("#f").addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+rallyEl.addEventListener("keydown", (e) => { if (e.key === "Enter"){ e.preventDefault(); crewsEl.focus(); } });
+rallyEl.addEventListener("change", () => { const c = store.get("rcCrews_" + rallyEl.value.trim(), ""); if (c && !crewsEl.value) crewsEl.value = c; });
+autoEl.addEventListener("change", () => { setAuto(autoEl.checked); if (autoEl.checked) load(); });
+$("#refresh").addEventListener("click", load);
+
+// ---------- Λίστα πληρωμάτων με διακόπτες ----------
+const picker = $("#picker"), pickList = $("#pickList"), pickSearch = $("#pickSearch"), pickCount = $("#pickCount");
+const selected = () => crewsEl.value.split(/[\s,;.]+/).map(s => s.trim()).filter(Boolean);
+function saveSelection(list){
+  crewsEl.value = list.join(", ");
+  const r = rallyEl.value.trim();
+  store.set("rcCrews_" + r, crewsEl.value);
+  try { const u = new URL(location.href); u.searchParams.set("rally", r); u.searchParams.set("crews", list.join(",")); history.replaceState(null, "", u); } catch(e){}
+}
+// Κενές θέσεις που ανοίγει ο διοργανωτής για αργοπορημένες συμμετοχές (Reserva / Spare)
+const isPlaceholder = (p) => {
+  const pil = String(p.piloto || "").trim();
+  return !pil || pil === "-"
+    || /reserva|spare/i.test([p.dorsal, p.clase, p.categoria].join(" "));
+};
+function renderPicker(){
+  const sel = new Set(selected());
+  const q = pickSearch.value.trim().toLowerCase();
+  const all = Object.values(data.byDorsal)
+    .filter(p => !isPlaceholder(p))
+    .sort((a, b) => (parseInt(a.dorsal, 10) || 0) - (parseInt(b.dorsal, 10) || 0));
+  const rows = all.filter(p => !q || String(p.dorsal) === q || [p.dorsal, p.piloto, p.copiloto, p.vehiculo_modelo].join(" ").toLowerCase().includes(q));
+  pickCount.textContent = sel.size + " επιλεγμένα · " + all.length + " συνολικά";
+  pickList.innerHTML = rows.length ? rows.map(p => {
+    const d = String(p.dorsal), k = data.cls[p.participant], on = sel.has(d);
+    const pos = k ? (k.dnq ? esc(k.dnq) : k.puesto + "ος") : "";
+    return `<label class="prow ${on ? "on" : ""}" for="pk_${esc(d)}">
+      <span class="no">${esc(d)}</span>
+      <span class="who">${esc(surname(p.piloto))}${p.copiloto ? " / " + esc(surname(p.copiloto)) : ""}<small>${esc(p.vehiculo_modelo || "")}${p.vehiculo_anho ? " · " + esc(p.vehiculo_anho) : ""}</small></span>
+      <span class="ppos">${pos}</span>
+      <input type="checkbox" id="pk_${esc(d)}" data-d="${esc(d)}" ${on ? "checked" : ""} aria-label="Πλήρωμα ${esc(d)}">
+    </label>`;
+  }).join("") : '<div class="empty">Δεν βρέθηκε πλήρωμα.</div>';
+}
+function openPicker(){
+  if (!data){ statusEl.className = "status err"; statusEl.textContent = "Φόρτωσε πρώτα έναν αγώνα"; return; }
+  pickSearch.value = "";
+  renderPicker();
+  picker.hidden = false; document.body.classList.add("locked");
+}
+function closePicker(){
+  picker.hidden = true; document.body.classList.remove("locked");
+  render();
+}
+$("#openPick").addEventListener("click", openPicker);
+$("#pickDone").addEventListener("click", closePicker);
+$("#pickClear").addEventListener("click", () => { saveSelection([]); renderPicker(); });
+pickSearch.addEventListener("input", renderPicker);
+pickList.addEventListener("change", (e) => {
+  const cb = e.target.closest("input[data-d]"); if (!cb) return;
+  let list = selected().filter(d => d !== cb.dataset.d);
+  if (cb.checked) list.push(cb.dataset.d);
+  list.sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0));
+  saveSelection(list);
+  cb.closest(".prow").classList.toggle("on", cb.checked);
+  pickCount.textContent = list.length + " επιλεγμένα · " + pickCount.textContent.split(" · ")[1];
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !picker.hidden) closePicker(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && autoEl.checked){ load(); keepAwake(true); } });
+window.addEventListener("online", () => { if (rallyEl.value) load(); });
+window.addEventListener("offline", showStatus);
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+// Ξεκίνημα: από το link (?rally=9158&crews=1,6,10) ή από την τελευταία επίσκεψη
+const qs = new URLSearchParams(location.search);
+rallyEl.value = (qs.get("rally") || store.get("rcRally", "")).replace(/\D/g, "");
+crewsEl.value = qs.get("crews") || store.get("rcCrews_" + rallyEl.value, "");
+if (rallyEl.value) load();
+</script>
+</body>
+</html>
