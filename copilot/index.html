@@ -339,6 +339,42 @@ table input{min-width:84px}
 :root.phone:not(.land).navfocus:not(.timefocus) #ti1[hidden]{display:none!important}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* roadbook page on phones: each tulip is a card, no sideways scrolling */
+:root.phone #v-rb .rbctl{padding:10px 12px;gap:6px;position:sticky;top:0;z-index:5}
+:root.phone #v-rb .rbctl .btnrow{flex-wrap:nowrap;gap:8px;align-items:center}
+:root.phone #v-rb .rbctl .field{min-width:0!important}
+:root.phone #v-rb .rbctl label{display:none}
+:root.phone #v-rb .rbctl select{font-size:15px;min-height:42px;padding:6px 10px;width:100%}
+:root.phone #v-rb #rbvNow{min-height:42px;padding:6px 12px;white-space:nowrap}
+:root.phone #v-rb #rbvNow .lg{display:none}
+:root.phone #v-rb #rbvInfo{font-size:12px;line-height:1.3;margin:0}
+:root.phone #v-rb .tablewrap{padding:0;background:transparent;border:0;overflow:visible}
+:root.phone .rbt{min-width:0;width:100%;display:block}
+:root.phone .rbt thead{display:none}
+:root.phone .rbt tbody{display:flex;flex-direction:column;gap:10px}
+:root.phone .rbt tr{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"n km chk" "tp tp tp" "pp rg rg";align-items:center;gap:6px 10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}
+:root.phone .rbt tr.rhead{display:block;padding:0;background:transparent;border:0}
+:root.phone .rbt tr.rhead td{display:block;border-radius:10px;font-size:16px}
+:root.phone .rbt td{display:block;padding:0;border:0;width:auto;background:transparent!important}
+:root.phone .rbt td.n{grid-area:n;font-size:22px;color:var(--soft)}
+:root.phone .rbt td.km{grid-area:km;font-size:26px}
+:root.phone .rbt td.tp{grid-area:tp}
+:root.phone .rbt td.pp{grid-area:pp;font-size:15px}
+:root.phone .rbt td.rg{grid-area:rg;font-size:15px;text-align:right}
+:root.phone .rbt td.pp::before,:root.phone .rbt td.rg::before{content:attr(data-l) ' ';font-family:var(--body);font-size:12px;color:var(--muted)}
+:root.phone .rbt td.chk{grid-area:chk;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:4px;text-align:right}
+:root.phone .rbt td.chk br{display:none}
+:root.phone .rbt td.chk .herebtn{margin:0;min-height:44px;padding:6px 14px;font-size:15px}
+:root.phone .rbt .paper{width:100%}
+:root.phone .rbt tr.rnow{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel))}
+:root.phone .rbt tr.rmeas{border-color:var(--late)}
+/* landscape phone: numbers left, tulip in the middle, button right — about two tulips per screen */
+:root.phone.land .rbt tr{grid-template-columns:auto auto minmax(0,1fr) auto;grid-template-areas:"n km tp chk" "n pp tp chk" "n rg tp chk";gap:2px 12px;padding:8px 10px}
+:root.phone.land .rbt td.rg{text-align:left}
+:root.phone.land .rbt td.chk{flex-direction:column;align-items:stretch;justify-content:center;max-width:120px}
+:root.phone.land .rbt .paper{max-width:min(100%,calc((100dvh - 150px) * 1.6));margin:0 auto}
+:root.phone.land #v-rb .rbctl{padding:6px 10px}
+:root.phone.land #v-rb #rbvInfo{display:none}
 </style>
 
 <div class="app">
@@ -508,10 +544,10 @@ table input{min-width:84px}
 
   <!-- ROADBOOK -->
   <section class="view" id="v-rb" hidden>
-    <div class="card stack">
+    <div class="card stack rbctl">
       <div class="btnrow" style="justify-content:space-between">
         <div class="field" style="flex:1;min-width:240px"><label for="rbvSec">Προβολή</label><select id="rbvSec"></select></div>
-        <span class="btnrow"><button class="btn" id="rbvNow">Πήγαινε στην τρέχουσα</button></span>
+        <span class="btnrow"><button class="btn" id="rbvNow"><span class="lg">Πήγαινε στην </span>τρέχουσα</button></span>
       </div>
       <p class="note" id="rbvInfo"></p>
     </div>
@@ -993,12 +1029,12 @@ function renderRbView(scrollNow){
   $('rbvBody').innerHTML=items.map(it=>{
     if(it.head)return '<tr class="rhead"><td colspan="6">'+esc(it.head)+'</td></tr>';
     const {i,j,r}=it;n++;const rows=BOOK[i].rows,prev=j?rows[j-1]:null;
-    const ok=!prev||r.partial==null||Math.abs((r.total-prev.total)-r.partial)<=0.002;if(!ok)bad++;
+    const ok=!prev||r.partial==null||((r.total-prev.total)-r.partial>=-0.008&&(r.total-prev.total)-r.partial<=0.0105);if(!ok)bad++;
     const isNow=i===cur.sec&&j===nextJ;if(isNow)scrollTo=i+':'+j;const m=i===cur.sec?mm.get(j):null,ed=S.rbEdits[i+':'+j];if(ed)edited++;
     return '<tr class="'+(isNow?'rnow ':'')+(m?'rmeas':'')+'" data-k="'+i+':'+j+'"><td class="n">'+r.n+'</td>'+
-      '<td class="km num"><button class="kmbtn" data-edit="'+i+':'+j+'">'+fmt(r.total,3)+'</button></td><td class="pk num">'+(r.partial==null?'—':fmt(r.partial,3))+'</td>'+
-      '<td><div class="paper"><img src="'+r.src+'" alt="Τουλίπα '+r.n+'" loading="lazy"><div class="ibox">'+(r.isrc?'<img src="'+r.isrc+'" alt="'+esc(r.info||'Information')+'" loading="lazy">':'<span>'+esc(r.info||'')+'</span>')+'</div></div></td>'+
-      '<td class="pk num">'+(r.regress==null?'—':fmt(r.regress,3))+'</td><td>'+(isNow?'<span class="tag now">ΕΠΟΜΕΝΗ</span><br>':'')+(m?'<span class="tag m">ΜΕΤΡΗΣΗ · σημείο '+m.i+'</span><br>':'')+(ed?'<span class="tag ed">διορθωμένη</span><br>':'')+(ok?'<span class="tag ok">✓ km</span>':'<span class="tag bad">✕ μερικά ≠ διαφορά</span>')+'<br><button class="btn primary herebtn" data-here="'+i+':'+j+'">'+(rbPickMode?'Ξεκινά εδώ':'Είμαι εδώ')+'</button></td></tr>';}).join('');
+      '<td class="km num"><button class="kmbtn" data-edit="'+i+':'+j+'">'+fmt(r.total,3)+'</button></td><td class="pk pp num" data-l="μερικά">'+(r.partial==null?'—':fmt(r.partial,3))+'</td>'+
+      '<td class="tp"><div class="paper"><img src="'+r.src+'" alt="Τουλίπα '+r.n+'" loading="lazy"><div class="ibox">'+(r.isrc?'<img src="'+r.isrc+'" alt="'+esc(r.info||'Information')+'" loading="lazy">':'<span>'+esc(r.info||'')+'</span>')+'</div></div></td>'+
+      '<td class="pk rg num" data-l="υπόλοιπο">'+(r.regress==null?'—':fmt(r.regress,3))+'</td><td class="chk">'+(isNow?'<span class="tag now">ΕΠΟΜΕΝΗ</span><br>':'')+(m?'<span class="tag m">ΜΕΤΡΗΣΗ · σημείο '+m.i+'</span><br>':'')+(ed?'<span class="tag ed">διορθωμένη</span><br>':'')+(ok?'<span class="tag ok">✓ km</span>':'<span class="tag bad">✕ μερικά ≠ διαφορά</span>')+'<br><button class="btn primary herebtn" data-here="'+i+':'+j+'">'+(rbPickMode?'Ξεκινά εδώ':'Είμαι εδώ')+'</button></td></tr>';}).join('');
   $('rbvInfo').textContent=n+' τουλίπες'+(bad?' · '+bad+' με ασυμφωνία στα km':' · όλα τα μερικά km συμφωνούν')+(edited?' · '+edited+' διορθωμένες από σένα':'')+'. Πάτα τα km μιας τουλίπας για να τα διορθώσεις.';
   if(scrollNow&&scrollTo){const tr=$('rbvBody').querySelector('[data-k="'+scrollTo+'"]');if(tr)tr.scrollIntoView({block:'center'});}
 }
