@@ -101,6 +101,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .titem{cursor:pointer;border:3px solid transparent;border-radius:14px;padding:8px 10px;display:flex;flex-direction:column;gap:8px}
 .titem.measure{border-color:var(--late);background:color-mix(in srgb,var(--late) 10%,transparent)}
 .titem.held .tdist{color:var(--late)}
+.titem.passed{border-style:dashed}.titem.passed .tdist{color:var(--muted)}
 .ti-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .ti-badge{background:var(--late);color:#fff;font-weight:700;font-size:13px;letter-spacing:.06em;border-radius:8px;padding:3px 9px}
 .ti-body{display:flex;flex-direction:column;gap:8px}
@@ -929,11 +930,14 @@ function measureMap(st,sec){
     if(best>=0&&bd<=0.025&&!m.has(best))m.set(best,{i,t:p[i].t,d:p[i].d});}
   return m;
 }
+const TUL_HOLD=0.2;
 function stackList(st,view){
   const sec=rbSec();if(!sec)return[];
   const x=bookKm(),rows=sec.rows,mm=measureMap(st,sec),out=[],max=view==='timing'?3:2;
   // a measurement tulip stays on screen until 5 s after its ideal time
   if(st.start){let held=null;mm.forEach((v,j)=>{if(rows[j].total<=x+0.0005&&now()<st.start+v.t*1000+5000)held=j;});if(held!=null)out.push({j:held,held:true});}
+  // a tulip just passed by the meters stays on screen for TUL_HOLD km more: if the GPS reads a little long, it is not lost before you reach it
+  if(!out.length){let pj=-1;rows.forEach((r,j)=>{if(r.total<=x+0.0005&&x-r.total<=TUL_HOLD)pj=j;});if(pj>0)out.push({j:pj,passed:true});}
   const i0=rows.findIndex(r=>r.total>x+0.0005);
   if(i0>=0){out.push({j:i0});for(let j=i0+1;j<rows.length&&out.length<max&&rows[j].total-rows[j-1].total<0.150;j++)out.push({j});}
   return out.slice(0,max).map(o=>Object.assign(o,{r:rows[o.j],m:mm.get(o.j)||null}));
@@ -945,15 +949,16 @@ function renderStack(st,view){
   $('tulEmpty').hidden=!!list.length;$('tulEmpty').textContent=rbSec()?'Τέλος τμήματος βιβλίου':'Χωρίς roadbook';
   for(let k=0;k<3;k++){
     const it=list[k],el=$('ti'+k);el.hidden=!it;if(!it)continue;
-    el.classList.toggle('measure',!!it.m);el.classList.toggle('near',!!it.m&&!it.held&&(it.r.total-x)*1000<=300);el.classList.toggle('held',!!it.held);el.classList.toggle('compact',list.length>=3||k>0);
+    el.classList.toggle('measure',!!it.m);el.classList.toggle('near',!!it.m&&!it.held&&(it.r.total-x)*1000<=300);el.classList.toggle('held',!!it.held);el.classList.toggle('passed',!!it.passed);el.classList.toggle('compact',list.length>=3||k>0);
     const key=stRb(st).sec+':'+it.j;
     if(el.dataset.k!==key){el.dataset.k=key;$('ti'+k+'img').src=it.r.src;$('ti'+k+'img').alt='Τουλίπα '+it.r.n;
       if(it.r.isrc){$('ti'+k+'inf').src=it.r.isrc;$('ti'+k+'inf').alt=it.r.info||'Πληροφορίες';$('ti'+k+'inf').hidden=false;$('ti'+k+'txt').hidden=true;}
       else{$('ti'+k+'inf').hidden=true;$('ti'+k+'txt').hidden=false;$('ti'+k+'txt').textContent=it.r.info||'';}}
-    $('ti'+k+'l').textContent='Τουλίπα '+it.r.n+' / '+rbSec().rows.length;
+    {const rs=rbSec().rows;$('ti'+k+'l').textContent='Τουλίπα '+it.r.n+' / '+rs[rs.length-1].n;}
     $('ti'+k+'b').hidden=!it.m;if(it.m)$('ti'+k+'b').textContent=(!it.held&&(it.r.total-x)*1000<=300?'ΠΛΗΣΙΑΖΕΙ · ':'')+'ΜΕΤΡΗΣΗ · σημείο '+it.m.i+' · '+secTxt(it.m.t)+' s';
     $('ti'+k+'k').textContent=fmt(it.r.total,3)+' km';
     if(it.held){const left=Math.max(0,(st.start+it.m.t*1000+5000-now())/1000);$('ti'+k+'d').innerHTML='πέρασες<small> · '+Math.ceil(left)+' s</small>';}
+    else if(it.passed)$('ti'+k+'d').innerHTML='πέρασε<small> · '+Math.round((x-it.r.total)*1000)+' m</small>';
     else $('ti'+k+'d').innerHTML='σε '+Math.max(0,Math.round((it.r.total-x)*1000))+'<small> m</small>';
   }
 }
