@@ -886,7 +886,7 @@ function closeSheet(){SH=null;L.frozen=null;const ae=document.activeElement;if(a
    code — Safari then drops that field's typing history, so there is nothing left to undo or redo. */
 document.addEventListener('focusout',e=>{const el=e.target;if(!el||!(el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&/^(text|number|search|tel|)$/.test(el.type||''))))return;
   setTimeout(()=>{if(document.activeElement===el)return;const v=el.value;el.value=v+' ';el.value=v;},0);},true);
-function openSheet(o){SH=o;$('shF2').hidden=o.value2==null;if(o.value2!=null){$('shLabel2').textContent=o.label2;$('shInput2').value=o.value2;}$('shLabel').textContent=o.label||'Σωστή απόσταση σε αυτό το σημείο (m)';$('shCheckRow').hidden=!o.check;if(o.check){$('shCheckTxt').textContent=o.check;$('shCheck').checked=false;}$('shList').hidden=!o.list;if(o.list)$('shList').innerHTML=o.list;$('shOk').hidden=!o.ok;$('shTitle').textContent=o.title;$('shText').textContent=o.text;$('shEdit').hidden=!o.edit;$('shOk').textContent=o.ok;
+function openSheet(o){SH=o;$('shF2').hidden=o.value2==null;if(o.value2!=null){$('shLabel2').textContent=o.label2;$('shInput2').value=o.value2;}$('shLabel').textContent=o.label||'Σωστή απόσταση σε αυτό το σημείο (m)';$('shCheckRow').hidden=!o.check;if(o.check){$('shCheckTxt').textContent=o.check;$('shCheck').checked=!!o.checked;}$('shList').hidden=!o.list;if(o.list)$('shList').innerHTML=o.list;$('shOk').hidden=!o.ok;$('shTitle').textContent=o.title;$('shText').textContent=o.text;$('shEdit').hidden=!o.edit;$('shOk').textContent=o.ok;
   $('shQuick').innerHTML='';(o.quick||[]).forEach(q=>{const b=document.createElement('button');b.className='btn';b.textContent=q.label;b.onclick=q.fn||(()=>{$('shInput').value=q.m;});$('shQuick').appendChild(b);});
   $('sheet').hidden=false;if(o.edit){$('shInput').value=o.value;setTimeout(()=>{$('shInput').focus();$('shInput').select();},30);}else $('shOk').focus();}
 function meterEdit(kind){
@@ -895,7 +895,7 @@ function meterEdit(kind){
   if(sec){const off=(+nav().off||0)*1000;let best=null;for(const r of sec.rows){const m=r.total*1000-off;if(!best||Math.abs(m-snap)<Math.abs(best.m-snap))best={m,r};}
     if(best&&Math.abs(best.m-snap)<=300)quick.push({label:'Τουλίπα '+best.r.n+' · '+Math.round(best.m)+' m',m:Math.round(best.m)});}
   const ss=stageState();if(ss){let bp=null;for(const p of ss.p.slice(1))if(!bp||Math.abs(p.d-snap)<Math.abs(bp.d-snap))bp=p;if(bp&&Math.abs(bp.d-snap)<=300)quick.push({label:'Σημείο '+ss.p.indexOf(bp)+' · '+bp.d+' m',m:bp.d});}
-  openSheet({kind,snap,edit:true,value:Math.round(snap),quick,ok:'Εφαρμογή',
+  openSheet({kind,snap,edit:true,value:Math.round(snap),quick,ok:'Εφαρμογή',check:'Και οι τουλίπες/βιβλίο στα ίδια μέτρα',checked:true,
     title:kind==='freeze'?'Πάγωμα στα '+Math.round(snap)+' m':'Διόρθωση απόστασης',
     text:kind==='freeze'?'Τα μέτρα πάγωσαν τη στιγμή που πάτησες. Γράψε τη σωστή απόσταση για εκείνο το σημείο και η μέτρηση συνεχίζει από εκεί, μαζί με όσα μέτρα έκανες στο μεταξύ.':'Γράψε την απόσταση που ισχύει τώρα. Η μέτρηση συνεχίζει από αυτόν τον αριθμό.'});
 }
@@ -930,7 +930,9 @@ $('shOk').onclick=()=>{if(!SH)return;
     else{rb.off=Math.round((r.total-meters()/1000)*1000)/1000;save();closeSheet();toast('Τουλίπες στοιχίστηκαν στην '+n+' (η απόσταση δεν άλλαξε)');}
     return;}
   const v=parseM($('shInput').value);if(!isFinite(v)||v<0){toast('Γράψε απόσταση σε μέτρα');return;}
-  const delta=v-SH.snap;L.corr+=delta;logEv('set_m',v,SH.kind);closeSheet();toast('Απόσταση '+v+' m ('+sgn(delta)+Math.round(Math.abs(delta))+' m)');};
+  const delta=v-SH.snap;L.corr+=delta;
+  // meters are the truth: the book follows them again (book km = book km of the last zero + meters)
+  if((SH.kind==='freeze'||SH.kind==='edit')&&$('shCheck').checked){const n=nav(),z=S.zeroBk&&S.zeroBk.sec===n.sec?S.zeroBk.off:0;n.off=z;save();logEv('nav_sync',z);}logEv('set_m',v,SH.kind);closeSheet();toast('Απόσταση '+v+' m ('+sgn(delta)+Math.round(Math.abs(delta))+' m)');};
 $('shInput').onkeydown=e=>{if(e.key==='Enter')$('shOk').click();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&SH)closeSheet();});
 function mark(){
@@ -941,7 +943,7 @@ function mark(){
 function zero(){const n=nav(),bk=bookKm(),sec=BOOK[n.sec];
   if(sec){const last=sec.rows[sec.rows.length-1].total;
     if(Math.abs(bk-last)<0.3&&BOOK[n.sec+1]&&BOOK[n.sec+1].book===sec.book){n.sec++;n.off=0;}   // zeroed on the reset tulip at the end of the section
-    else n.off=bk<0.3?0:Math.round(bk*1000)/1000;}
+    else n.off=bk<0.3?0:Math.round(bk*1000)/1000;S.zeroBk={sec:n.sec,off:n.off};}
   logEv('zero');L.a0=L.a;L.b0=L.b;G.d0=gpsRaw();L.corr=0;G.seg=S.source==='gps'&&act()?{km:bookKm(),snap:gpsSnap()}:null;L.hist=[];L.prevX=0;toast('Απόσταση μηδενίστηκε');}
 function passDev(st,i){const p=pts(st);if(!st.pass||st.pass[i]==null||!p[i+1])return null;return (st.pass[i]-(st.start+p[i+1].t*1000))/1000;}
 function recordPass(st,i,t){st.pass=st.pass||[];st.pass[i]=t;st.idx=i+1;save();const d=passDev(st,i);logEv('pass',i+1,d==null?'':'dev '+d.toFixed(2)+' s');
@@ -1232,7 +1234,7 @@ function autoStart(ss){
   if(st.start&&ss.elapsed!=null&&ss.elapsed>=0&&ss.elapsed<3&&startedKey!==key){
     startedKey=key;
     const rb=stRb(st);
-    if(S.autoZero&&Math.abs(L.speed)<5){zero();if(BOOK[rb.sec]){S.nav={sec:rb.sec,off:+rb.off||0};if(G.seg)G.seg.km=bookKm();}toast('Εκκίνηση! Η απόσταση μηδενίστηκε');}
+    if(S.autoZero&&Math.abs(L.speed)<5){zero();if(BOOK[rb.sec]){S.nav={sec:rb.sec,off:+rb.off||0};S.zeroBk={sec:rb.sec,off:+rb.off||0};if(G.seg)G.seg.km=bookKm();}toast('Εκκίνηση! Η απόσταση μηδενίστηκε');}
     else{if(BOOK[rb.sec])S.nav={sec:rb.sec,off:Math.round(((+rb.off||0)-meters()/1000)*1000)/1000};toast('Εκκίνηση!');}
     save();
   }
@@ -1531,7 +1533,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v27 · 18/10 01:00 · ΕΔ16–29';
+window.APP_VER='v28 · 18/10 01:10 · πάγωμα στοιχίζει και το βιβλίο';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
