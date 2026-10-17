@@ -380,6 +380,7 @@ table input{min-width:84px}
 #dev[data-mode=route] .scale,#dev[data-mode=route] .scale-l{display:none}
 :root.phone.land #dev[data-mode=route] .mrow{display:none!important}
 :root.phone.land #devSub2 b{font-size:inherit}
+#ptBody input[id^=ps]{min-width:6.2em}
 </style>
 
 <div class="app">
@@ -1351,7 +1352,7 @@ function renderEditor(){
       const d=passDev(st,i);
       const passTxt=i<idx?(d==null?'<span style="color:var(--muted)">αυτόμ.</span>':'<span class="num '+(Math.abs(d)<=(+S.tol||0.3)?'d-ok':d>0?'d-late':'d-early')+'">'+sgn(d)+fmt(Math.abs(d),1)+' s</span>'):'';
       const tr=document.createElement('tr');tr.className=(bad?'bad ':'')+(i===idx?'cur':'');
-      tr.innerHTML='<td class="n">'+(i+1)+'</td><td><input id="pm'+i+'" class="num" inputmode="numeric" value="'+(isFinite(p.m)?p.m:'')+'" aria-label="Μέτρα σημείου '+(i+1)+'"></td><td><input id="ps'+i+'" class="num" value="'+(isFinite(p.s)?(p.s<60?String(p.s).replace('.',','):mmss(p.s)):'')+'" aria-label="Χρόνος σημείου '+(i+1)+'"></td><td><input id="pc'+i+'" class="num" style="max-width:90px" value="'+(p.c?String(p.c).replace('.',',').replace('-',MINUS):'')+'" placeholder="0" aria-label="Διόρθωση σημείου '+(i+1)+'"></td><td class="sp">'+(st.start&&isFinite(t)?hms(st.start+t*1000,true):'—')+'</td><td class="sp">'+passTxt+'</td><td><button class="x" aria-label="Αφαίρεση σημείου '+(i+1)+'">×</button></td>';
+      tr.innerHTML='<td class="n">'+(i+1)+'</td><td><input id="pm'+i+'" class="num" inputmode="numeric" value="'+(isFinite(p.m)?p.m:'')+'" aria-label="Μέτρα σημείου '+(i+1)+'"></td><td><input id="ps'+i+'" class="num" value="'+(isFinite(p.s)?(p.s<60?String(p.s).replace('.',','):mmss(p.s)):'')+'" aria-label="Χρόνος σημείου '+(i+1)+'">'+(isFinite(p.s)&&p.s>=60?'<small class="num" style="display:block;color:var(--muted);font-size:13px;margin-top:2px">= '+fmt(p.s,1)+' s</small>':'')+'</td><td><input id="pc'+i+'" class="num" style="max-width:90px" value="'+(p.c?String(p.c).replace('.',',').replace('-',MINUS):'')+'" placeholder="0" aria-label="Διόρθωση σημείου '+(i+1)+'"></td><td class="sp">'+(st.start&&isFinite(t)?hms(st.start+t*1000,true):'—')+'</td><td class="sp">'+passTxt+'</td><td><button class="x" aria-label="Αφαίρεση σημείου '+(i+1)+'">×</button></td>';
       tr.querySelector('#pm'+i).onchange=e=>{p.m=parseM(e.target.value);sortPts(st);save();renderEditor();};
       tr.querySelector('#ps'+i).onchange=e=>{p.s=parseTime(e.target.value);save();renderEditor();};
       tr.querySelector('#pc'+i).onchange=e=>{const v=num(e.target.value||0);p.c=isFinite(v)?Math.round(v*10)/10:0;save();renderEditor();};
@@ -1503,7 +1504,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v18 · 17/10 12:12 · διόρθωση μέτρων στις τουλίπες μέτρησης (χωρίς όριο)';
+window.APP_VER='v19 · 17/10 12:15 · δευτερόλεπτα στα σημεία';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
