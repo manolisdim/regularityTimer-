@@ -389,6 +389,7 @@ table input{min-width:84px}
 :root.phone .devnow{font-size:72px}
 :root.phone.land .devnow{font-size:46px}
 #stageList .srow{grid-template-columns:minmax(0,1fr);min-height:48px}#stageList .srow b{font-size:17px}
+#stNextMin{grid-column:1 / -1;min-height:52px;font-size:18px}
 </style>
 
 <div class="app">
@@ -507,7 +508,7 @@ table input{min-width:84px}
         <div class="card stack">
           <div class="field"><label for="stName">Όνομα ειδικής</label><input id="stName"></div>
           <div class="field"><label for="stStart">Ώρα εκκίνησης</label>
-            <div class="btnrow startrow"><button class="btn big1" data-nd="-60">−1 λ</button><input id="stStart" class="num startin" inputmode="numeric" placeholder="ωω:λλ:δδ" autocomplete="off" enterkeyhint="done"><button class="btn big1" data-nd="60">+1 λ</button><button class="btn primary" id="stStartSet">Ορισμός</button></div></div>
+            <div class="btnrow startrow"><button class="btn big1" data-nd="-60">−1 λ</button><input id="stStart" class="num startin" inputmode="numeric" placeholder="ωω:λλ:δδ" autocomplete="off" enterkeyhint="done"><button class="btn big1" data-nd="60">+1 λ</button><button class="btn primary" id="stStartSet">Ορισμός</button><button class="btn primary" id="stNextMin">⏭ Next minute</button></div></div>
           <div class="btnrow" id="notDoneRow" hidden><button class="btn" id="notDone">↺ Not completed · δεν έχει γίνει</button></div>
           <div class="field"><label>Ξεκινά από την τουλίπα</label>
             <button class="btn rbpick" id="rbPick"><span id="rbPickTxt">—</span><span class="rbpick-go">Αλλαγή ▸</span></button></div>
@@ -1406,6 +1407,8 @@ $('bulkApply').onclick=()=>{const st=act();const txt=$('bulkText').value;
 $('stName').onchange=e=>{act().name=e.target.value.trim()||'Ειδική';save();renderEditor();};
 function applyStart(){const st=act(),t=parseHMS($('stStart').value);if(t==null){toast('Γράψε ώρα, π.χ. 115030 για 11:50:30');return;}st.start=t;st.demo=false;st.idx=0;st.pass=[];save();$('stStart').blur();renderEditor();toast('Εκκίνηση '+st.name+' στις '+hms(t)+(new Date(t).toDateString()!==new Date(now()).toDateString()?' (αύριο)':''));}
 $('stStartSet').onclick=applyStart;
+// next whole minute, e.g. now 21:40:37 → 21:41:00
+$('stNextMin').onclick=()=>{const st=act();if(!st)return;const t=Math.floor(now()/60000)*60000+60000;st.start=t;st.demo=false;st.idx=0;st.pass=[];save();renderEditor();toast('Εκκίνηση '+st.name+' στις '+hms(t));};
 $('stStart').onkeydown=e=>{if(e.key==='Enter')applyStart();};
 $('stStart').oninput=e=>{fmtTimeTyping(e.target,e);if(e.target.value.replace(/\D/g,'').length===6)applyStart();};   // six digits = complete time, set it
 // tapping the field empties it (the current time stays visible greyed out), so new digits never mix with the old ones
@@ -1528,7 +1531,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v25 · 17/10 21:12 · λίστα ειδικών μόνο τίτλος';
+window.APP_VER='v26 · 17/10 21:45 · next minute';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
