@@ -388,6 +388,7 @@ table input{min-width:84px}
 .devnow small{font-size:.35em}
 :root.phone .devnow{font-size:72px}
 :root.phone.land .devnow{font-size:46px}
+#stageList .srow{grid-template-columns:minmax(0,1fr);min-height:48px}#stageList .srow b{font-size:17px}
 </style>
 
 <div class="app">
@@ -1333,7 +1334,7 @@ function stageRows(){
   const fin=s=>stageStatus(s)==='Ολοκληρώθηκε';
   const list=S.stages.filter(s=>!fin(s)).sort(byName).concat(S.stages.filter(fin).sort(byName));
   return list.map(s=>{const stt=stageStatus(s);
-    return '<button class="srow'+(stt==='Ολοκληρώθηκε'?' done':'')+'" data-sid="'+s.id+'" aria-current="'+(s.id===act().id)+'"><span class="t num">'+(s.start?hms(s.start).slice(0,5):s.win?'<span style="opacity:.6">'+hms(s.win[0]).slice(0,5)+'</span>':'—:—')+'</span><b>'+esc(s.name)+'</b><small>'+(s.mode==='points'?'Χρόνος/σημείο':'ΜΩΤ')+(s.win&&!s.start?' · παράθυρο '+hms(s.win[0]).slice(0,5)+'–'+hms(s.win[1]).slice(0,5):' · '+stt)+'</small></button>';}).join('');
+    return '<button class="srow'+(stt==='Ολοκληρώθηκε'?' done':'')+'" data-sid="'+s.id+'" aria-current="'+(s.id===act().id)+'"><b>'+esc(s.name)+'</b></button>';}).join('');
 }
 function renderChips(){$('slCount').textContent='Ειδικές · '+S.stages.length;$('stageList').innerHTML=stageRows();
   const cur=$('stageList').querySelector('[aria-current="true"]');if(cur&&cur.scrollIntoViewIfNeeded)cur.scrollIntoViewIfNeeded(false);}
@@ -1527,7 +1528,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v24 · 17/10 21:10 · λίστα ειδικών · not completed';
+window.APP_VER='v25 · 17/10 21:12 · λίστα ειδικών μόνο τίτλος';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
