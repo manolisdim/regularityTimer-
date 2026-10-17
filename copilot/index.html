@@ -1164,6 +1164,7 @@ function startAuto(st,t,why){st.start=Math.round(t/60000)*60000;   // starts are
   st.idx=0;st.pass=[];startedKey=st.id+':'+st.start;A.armed=false;save();
   logEv('auto_start',st.name,hms(st.start)+' '+why);toast('Εκκίνηση '+st.name+' '+hms(st.start));if(!$('v-stage').hidden)renderEditor();}
 function autoArm(ss){
+  return null;   // auto start removed: start times are set by hand
   const st=ss.st;if(!st.auto||st.start)return null;
   const t=now(),open=st.win?st.win[0]:0,close=st.win?st.win[1]:9e15,rb=stRb(st),n=nav(),sec=BOOK[n.sec],v=Math.abs(L.speed);
   let dist=null;   // metres still to drive to the start tulip, by the road book
@@ -1187,7 +1188,7 @@ function autoStart(ss){
   AUTO=autoArm(ss);
   // auto-start stages run in order: when one is finished, the next one becomes active (navigation is not touched)
   {const overA=ss.elapsed!=null&&ss.n&&ss.elapsed>ss.p[ss.n].t+60;
-   if(st.auto&&st.start&&(ss.done||overA)){const nx=sortedStages().find(s=>s!==st&&s.auto&&!s.start&&now()<(s.win?s.win[1]:9e15)&&stKey(s)>=stKey(st));
+   if(false&&st.auto&&st.start&&(ss.done||overA)){const nx=sortedStages().find(s=>s!==st&&s.auto&&!s.start&&now()<(s.win?s.win[1]:9e15)&&stKey(s)>=stKey(st));
      if(nx){S.active=nx.id;save();toast('Επόμενη: '+nx.name);if(!$('v-stage').hidden)renderEditor();return;}}}
   // switch to a stage that is about to start when the current one is finished or not running
   const cand=S.stages.filter(s=>s!==st&&s.start&&s.start-now()<=120000&&s.start-now()>-5000).sort((a,b)=>a.start-b.start)[0];
@@ -1239,13 +1240,13 @@ function render(force){
   setNext(ss,pm);
   if(view==='timing'&&(ss.elapsed==null||ss.elapsed<0||ss.done))renderMeas(ss,ss.next&&st.start?st.start+ss.next.t*1000-now():null);
   if(!ss.n){liaison('',st.name+': χωρίς '+(pm?'σημεία':'τμήματα'));return;}
-  if(ss.elapsed==null&&st.auto){const a=AUTO||{},hm=t=>hms(t).slice(0,5);
+  if(false&&ss.elapsed==null&&st.auto){const a=AUTO||{},hm=t=>hms(t).slice(0,5);
     if(a.armed){const nm=Math.ceil((now()+300)/60000)*60000,r=nm-now();countdown(st.id+':min:'+nm,r);
       setDev(r<=10000?'alert':'idle','AUTO START · '+st.name+' · εκκίνηση '+hms(nm),'ΕΤΟΙΜΟΣ',cdTxt(r/1000)+'<small> s</small>','Φύγε στις <b>'+hms(nm)+'</b> · ο χρόνος κλειδώνει στο ακέραιο λεπτό',
       '1ο σημείο <b>'+ss.p[1].d+'</b> m στα <b>'+secTxt(ss.p[1].t)+'</b> s');autoBtns('go');$('dev').dataset.mode='route';return;}
     liaison('',st.name+' · auto start <b>'+hm(a.open)+'–'+hm(a.close)+'</b>'+(a.dist!=null?' · αφετηρία σε <b>'+Math.max(0,Math.round(a.dist))+'</b> m':'')+
 '');autoBtns('arm');return;}
-  if(ss.elapsed==null){liaison('',st.name+': όρισε ώρα εκκίνησης');return;}
+  if(ss.elapsed==null){liaison('',st.name+': όρισε ώρα εκκίνησης'+(st.win?' · παράθυρο '+hms(st.win[0]).slice(0,5)+'–'+hms(st.win[1]).slice(0,5):''));return;}
   if(ss.elapsed<0){
     const r=-ss.elapsed*1000;countdown(st.id+':start',r);
     if(r>120000){liaison('',st.name+' εκκίνηση <b>'+hms(st.start)+'</b> · σε '+elTxt(ss.elapsed).replace(MINUS,''));return;}   // far from the start: show the route
@@ -1297,7 +1298,7 @@ const stKey=s=>s.start||(s.win&&s.win[0])||9e15;
 function sortedStages(){return S.stages.slice().sort((a,b)=>stKey(a)-stKey(b));}
 function stageRows(){
   return sortedStages().map(s=>{const stt=stageStatus(s);
-    return '<button class="srow'+(stt==='Ολοκληρώθηκε'?' done':'')+'" data-sid="'+s.id+'" aria-current="'+(s.id===act().id)+'"><span class="t num">'+(s.start?hms(s.start).slice(0,5):s.win?'<span style="opacity:.6">'+hms(s.win[0]).slice(0,5)+'</span>':'—:—')+'</span><b>'+esc(s.name)+'</b><small>'+(s.mode==='points'?'Χρόνος/σημείο':'ΜΩΤ')+(s.auto&&!s.start?' · auto start '+hms(s.win[0]).slice(0,5)+'–'+hms(s.win[1]).slice(0,5):' · '+stt)+'</small></button>';}).join('');
+    return '<button class="srow'+(stt==='Ολοκληρώθηκε'?' done':'')+'" data-sid="'+s.id+'" aria-current="'+(s.id===act().id)+'"><span class="t num">'+(s.start?hms(s.start).slice(0,5):s.win?'<span style="opacity:.6">'+hms(s.win[0]).slice(0,5)+'</span>':'—:—')+'</span><b>'+esc(s.name)+'</b><small>'+(s.mode==='points'?'Χρόνος/σημείο':'ΜΩΤ')+(s.win&&!s.start?' · παράθυρο '+hms(s.win[0]).slice(0,5)+'–'+hms(s.win[1]).slice(0,5):' · '+stt)+'</small></button>';}).join('');
 }
 function renderChips(){$('slCount').textContent='Ειδικές · '+S.stages.length;$('stageList').innerHTML=stageRows();
   const cur=$('stageList').querySelector('[aria-current="true"]');if(cur&&cur.scrollIntoViewIfNeeded)cur.scrollIntoViewIfNeeded(false);}
@@ -1489,7 +1490,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v14 · 17/10 11:00';
+window.APP_VER='v15 · 17/10 11:10 · χειροκίνητη εκκίνηση';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
