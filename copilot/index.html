@@ -178,7 +178,7 @@ tr.cur td{background:color-mix(in srgb,var(--accent) 16%,transparent)}
 .srow .t{font-family:var(--display);font-size:22px;font-weight:600;grid-row:span 2;color:var(--accent);min-width:74px}
 .srow b{font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .srow small{color:var(--muted);font-size:13px}
-.srow.done{opacity:.6}
+.srow.done{opacity:.4}
 .stages .split{grid-template-columns:minmax(0,1fr)}
 .startrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:stretch;max-width:560px}
 .startrow .startin{font-family:var(--display);font-size:34px;font-weight:700;text-align:center;min-width:0;width:100%}
@@ -507,6 +507,7 @@ table input{min-width:84px}
           <div class="field"><label for="stName">Όνομα ειδικής</label><input id="stName"></div>
           <div class="field"><label for="stStart">Ώρα εκκίνησης</label>
             <div class="btnrow startrow"><button class="btn big1" data-nd="-60">−1 λ</button><input id="stStart" class="num startin" inputmode="numeric" placeholder="ωω:λλ:δδ" autocomplete="off" enterkeyhint="done"><button class="btn big1" data-nd="60">+1 λ</button><button class="btn primary" id="stStartSet">Ορισμός</button></div></div>
+          <div class="btnrow" id="notDoneRow" hidden><button class="btn" id="notDone">↺ Not completed · δεν έχει γίνει</button></div>
           <div class="field"><label>Ξεκινά από την τουλίπα</label>
             <button class="btn rbpick" id="rbPick"><span id="rbPickTxt">—</span><span class="rbpick-go">Αλλαγή ▸</span></button></div>
         </div>
@@ -1327,8 +1328,11 @@ function parsePoints(text){
 function sortPts(st){st.points.sort((a,b)=>(isFinite(a.m)?+a.m:1e12)-(isFinite(b.m)?+b.m:1e12));}
 const stKey=s=>s.start||(s.win&&s.win[0])||9e15;
 function sortedStages(){return S.stages.slice().sort((a,b)=>stKey(a)-stKey(b));}
+const byName=(a,b)=>String(a.name).localeCompare(String(b.name),'el',{numeric:true,sensitivity:'base'});
 function stageRows(){
-  return sortedStages().map(s=>{const stt=stageStatus(s);
+  const fin=s=>stageStatus(s)==='Ολοκληρώθηκε';
+  const list=S.stages.filter(s=>!fin(s)).sort(byName).concat(S.stages.filter(fin).sort(byName));
+  return list.map(s=>{const stt=stageStatus(s);
     return '<button class="srow'+(stt==='Ολοκληρώθηκε'?' done':'')+'" data-sid="'+s.id+'" aria-current="'+(s.id===act().id)+'"><span class="t num">'+(s.start?hms(s.start).slice(0,5):s.win?'<span style="opacity:.6">'+hms(s.win[0]).slice(0,5)+'</span>':'—:—')+'</span><b>'+esc(s.name)+'</b><small>'+(s.mode==='points'?'Χρόνος/σημείο':'ΜΩΤ')+(s.win&&!s.start?' · παράθυρο '+hms(s.win[0]).slice(0,5)+'–'+hms(s.win[1]).slice(0,5):' · '+stt)+'</small></button>';}).join('');
 }
 function renderChips(){$('slCount').textContent='Ειδικές · '+S.stages.length;$('stageList').innerHTML=stageRows();
@@ -1348,6 +1352,7 @@ function renderEditor(){
    $('rbPickTxt').textContent=!sec?'Χωρίς roadbook':(r?'Τουλίπα '+r.n:fmt(o,3)+' km')+' · '+sec.name;}
   if(document.activeElement!==$('stName'))$('stName').value=st.name;
   if(document.activeElement!==$('stStart'))$('stStart').value=st.start?hms(st.start):'';
+  $('notDoneRow').hidden=!(st.start||(st.pass&&st.pass.length)||st.idx);
   $('bulkNote').textContent=pm?'Μία γραμμή ανά σημείο: μέτρα και χρόνος, και προαιρετικά διόρθωση. Π.χ. «400 40» ή «1500 1:55 −1,5». Αντικαθιστά τα σημεία.':'Τα τμήματα όπως τα δίνει ο οργανωτής, σε μία ή πολλές γραμμές. Π.χ. «0 έως 1500 ΜΩΤ 43, 1500 έως 3780 ΜΩΤ 50». Αντικαθιστά τα τμήματα.';
   $('bulkText').placeholder=pm?'400 40\n800 60\n1500 1:55 -1.5':'0 έως 1500 ΜΩΤ 43\n1500 έως 3780 ΜΩΤ 50';
   const warn=[];
@@ -1410,6 +1415,7 @@ $('startIn30').onclick=()=>{const st=act();st.start=Math.ceil((now()+30000)/1000
 $('zeroBtn').onclick=zero;
 $('resetPass').onclick=()=>{$('resetConfirm').hidden=false;};
 $('resetNo').onclick=()=>{$('resetConfirm').hidden=true;};
+$('notDone').onclick=()=>{const st=act();if(!st)return;st.idx=0;st.pass=[];st.start=null;save();renderEditor();toast(st.name+': δεν έχει γίνει');};
 $('resetYes').onclick=()=>{const st=act();st.idx=0;st.pass=[];$('resetConfirm').hidden=true;save();renderEditor();};
 
 /* ---------- calibration ---------- */
@@ -1521,7 +1527,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v23 · 17/10 20:50 · km τουλίπας πράσινα · απόκλιση σε νούμερο';
+window.APP_VER='v24 · 17/10 21:10 · λίστα ειδικών · not completed';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
