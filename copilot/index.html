@@ -492,7 +492,7 @@ table input{min-width:84px}
         <div class="card stack">
           <div class="field"><label for="stName">Όνομα ειδικής</label><input id="stName"></div>
           <div class="field"><label for="stStart">Ώρα εκκίνησης</label>
-            <div class="btnrow startrow"><button class="btn big1" data-nd="-60">−1 λ</button><input id="stStart" class="num startin" inputmode="numeric" placeholder="11:50:00"><button class="btn big1" data-nd="60">+1 λ</button><button class="btn primary" id="stStartSet">Ορισμός</button></div></div>
+            <div class="btnrow startrow"><button class="btn big1" data-nd="-60">−1 λ</button><input id="stStart" class="num startin" inputmode="numeric" placeholder="ωω:λλ:δδ" autocomplete="off" enterkeyhint="done"><button class="btn big1" data-nd="60">+1 λ</button><button class="btn primary" id="stStartSet">Ορισμός</button></div></div>
           <div class="field"><label>Ξεκινά από την τουλίπα</label>
             <button class="btn rbpick" id="rbPick"><span id="rbPickTxt">—</span><span class="rbpick-go">Αλλαγή ▸</span></button></div>
         </div>
@@ -715,7 +715,18 @@ function secTxt(sec){return Math.abs(sec)<60?fmt(sec,1).replace('-',MINUS):mmss(
 function elTxt(sec){if(sec>=0)return mmss(sec);const s=Math.ceil(-sec-1e-6),m=Math.floor(s/60),r=s-m*60;return MINUS+m+':'+(r<10?'0':'')+r;}
 function cdTxt(sec,late){const s=late?Math.floor(sec):Math.ceil(sec-1e-6);if(s<60)return String(s);const m=Math.floor(s/60),r=s-m*60;return m+':'+(r<10?'0':'')+r;}
 function parseTime(str){str=String(str).trim().replace(',','.').replace(MINUS,'-');if(!str)return NaN;const p=str.split(':').map(Number);if(p.some(isNaN))return NaN;return p.reduce((a,v)=>a*60+v,0);}
-function parseHMS(str){const p=String(str).trim().split(/[:.\s]/).map(Number);if(p.length<2||p.some(isNaN))return null;const d=new Date(now());d.setHours(p[0],p[1],p[2]||0,0);return d.getTime();}
+function parseHMS(str){str=String(str).trim();let p;
+  if(/^[\d:]+$/.test(str)&&/^\d{3,6}$/.test(str.replace(/:/g,''))){str=str.replace(/:/g,'');const s=str.length%2?'0'+str:str;p=s.match(/../g).map(Number);}   // 1150 → 11:50, 950 → 09:50, 115030 → 11:50:30
+  else p=str.split(/[:.\s]+/).filter(Boolean).map(Number);
+  if(p.length<2||p.some(isNaN)||p[0]>23||p[1]>59||(p[2]||0)>59)return null;
+  const d=new Date(now());d.setHours(p[0],p[1],p[2]||0,0);let t=d.getTime();
+  if(now()-t>6*3600000)t+=86400000;   // e.g. 00:25 typed on Saturday evening is Sunday 00:25
+  return t;}
+// typing a time on a phone number pad: colons appear by themselves (115030 → 11:50:30)
+function fmtTimeTyping(el,ev){const dg=el.value.replace(/\D/g,'').slice(0,6);let v=dg;
+  if(ev&&ev.inputType&&ev.inputType.startsWith('delete')&&el._last&&el._last.replace(/\D/g,'')===dg&&el._last.length>el.value.length)v=dg.slice(0,-1);   // backspace over a colon removes a digit
+  const d=v;v=d.length>4?d.slice(0,2)+':'+d.slice(2,4)+':'+d.slice(4):d.length>2?d.slice(0,2)+':'+d.slice(2):d;
+  el.value=v;el._last=v;}
 const num=v=>+String(v).trim().replace(',','.').replace(MINUS,'-');
 
 /* ---------- Rabbit Box protocol ---------- */
@@ -1275,9 +1286,13 @@ $('bulkApply').onclick=()=>{const st=act();const txt=$('bulkText').value;
   else{const g=parseSegs(txt);if(!g.length){toast('Δεν βρέθηκαν τμήματα');return;}st.segs=g;toast(g.length+' τμήματα · '+fmt(g[g.length-1].to/1000,3)+' km');}
   save();renderEditor();};
 $('stName').onchange=e=>{act().name=e.target.value.trim()||'Ειδική';save();renderEditor();};
-function applyStart(){const st=act(),t=parseHMS($('stStart').value);if(t==null){toast('Γράψε ώρα ωω:λλ:δδ');return;}st.start=t;st.demo=false;st.idx=0;st.pass=[];save();$('stStart').blur();renderEditor();toast('Εκκίνηση '+st.name+' στις '+hms(t));}
+function applyStart(){const st=act(),t=parseHMS($('stStart').value);if(t==null){toast('Γράψε ώρα, π.χ. 115030 για 11:50:30');return;}st.start=t;st.demo=false;st.idx=0;st.pass=[];save();$('stStart').blur();renderEditor();toast('Εκκίνηση '+st.name+' στις '+hms(t)+(new Date(t).toDateString()!==new Date(now()).toDateString()?' (αύριο)':''));}
 $('stStartSet').onclick=applyStart;
 $('stStart').onkeydown=e=>{if(e.key==='Enter')applyStart();};
+$('stStart').oninput=e=>{fmtTimeTyping(e.target,e);if(e.target.value.replace(/\D/g,'').length===6)applyStart();};   // six digits = complete time, set it
+// tapping the field empties it (the current time stays visible greyed out), so new digits never mix with the old ones
+$('stStart').onfocus=e=>{const el=e.target;el.placeholder=el.value||'ωω:λλ:δδ';el.value='';el._last='';};
+$('stStart').onblur=e=>{const el=e.target;setTimeout(()=>{if(document.activeElement!==el){const st=act();if(!el.value)el.value=st&&st.start?hms(st.start):'';el.placeholder='ωω:λλ:δδ';}},0);};
 document.querySelectorAll('[data-nd]').forEach(b=>b.onclick=()=>{const st=act();const base=st.start||Math.ceil(now()/60000)*60000;st.start=base+(+b.dataset.nd)*1000;st.demo=false;save();renderEditor();});
 $('startIn30').onclick=()=>{const st=act();st.start=Math.ceil((now()+30000)/1000)*1000;st.demo=false;st.idx=0;st.pass=[];save();zero();renderEditor();toast('Εκκίνηση στις '+hms(st.start));};
 $('zeroBtn').onclick=zero;
