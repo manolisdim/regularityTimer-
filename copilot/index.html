@@ -1159,8 +1159,9 @@ let startedKey='';
 let A={armed:false,id:null,still:0,t0:0,t1:0},AUTO=null;
 function armAuto(st,manual){zero();const rb=stRb(st);if(BOOK[rb.sec]){S.nav={sec:rb.sec,off:+rb.off||0};if(G.seg)G.seg.km=bookKm();}
   const t=now();A={armed:true,id:st.id,still:t,t0:t,t1:0};save();logEv('auto_arm',st.name,manual?'manual':'');toast((manual?'Οπλίστηκε · ':'Στην εκκίνηση · ')+st.name+' · ξεκινά με την κίνηση');}
-function startAuto(st,t,why){st.start=Math.round(t/100)*100;st.idx=0;st.pass=[];startedKey=st.id+':'+st.start;A.armed=false;save();
-  logEv('auto_start',st.name,hms(st.start)+' '+why);toast('Εκκίνηση '+st.name+' '+hms(st.start,true));if(!$('v-stage').hidden)renderEditor();}
+function startAuto(st,t,why){st.start=Math.round(t/60000)*60000;   // starts are on the full minute (e.g. 11:25:00)
+  st.idx=0;st.pass=[];startedKey=st.id+':'+st.start;A.armed=false;save();
+  logEv('auto_start',st.name,hms(st.start)+' '+why);toast('Εκκίνηση '+st.name+' '+hms(st.start));if(!$('v-stage').hidden)renderEditor();}
 function autoArm(ss){
   const st=ss.st;if(!st.auto||st.start)return null;
   const t=now(),open=st.win?st.win[0]:0,close=st.win?st.win[1]:9e15,rb=stRb(st),n=nav(),sec=BOOK[n.sec],v=Math.abs(L.speed);
@@ -1238,7 +1239,8 @@ function render(force){
   if(view==='timing'&&(ss.elapsed==null||ss.elapsed<0||ss.done))renderMeas(ss,ss.next&&st.start?st.start+ss.next.t*1000-now():null);
   if(!ss.n){liaison('',st.name+': χωρίς '+(pm?'σημεία':'τμήματα'));return;}
   if(ss.elapsed==null&&st.auto){const a=AUTO||{},hm=t=>hms(t).slice(0,5);
-    if(a.armed){setDev('alert','AUTO START · '+st.name,'ΕΤΟΙΜΟΣ',Math.round(Math.max(0,meters()))+'<small> m</small>','Ο χρόνος ξεκινά μόλις κινηθείς από τη γραμμή',
+    if(a.armed){const nm=Math.ceil((now()+300)/60000)*60000,r=nm-now();countdown(st.id+':min:'+nm,r);
+      setDev(r<=10000?'alert':'idle','AUTO START · '+st.name+' · εκκίνηση '+hms(nm),'ΕΤΟΙΜΟΣ',cdTxt(r/1000)+'<small> s</small>','Φύγε στις <b>'+hms(nm)+'</b> · ο χρόνος κλειδώνει στο ακέραιο λεπτό',
       '1ο σημείο <b>'+ss.p[1].d+'</b> m στα <b>'+secTxt(ss.p[1].t)+'</b> s');autoBtns('go');$('dev').dataset.mode='route';return;}
     liaison('',st.name+' · auto start <b>'+hm(a.open)+'–'+hm(a.close)+'</b>'+(a.dist!=null?' · αφετηρία σε <b>'+Math.max(0,Math.round(a.dist))+'</b> m':'')+
 '');autoBtns('arm');return;}
