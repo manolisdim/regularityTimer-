@@ -870,7 +870,7 @@ function openSheet(o){SH=o;$('shF2').hidden=o.value2==null;if(o.value2!=null){$(
 function meterEdit(kind){
   if(SH)return;const snap=meters();L.frozen={snap};
   const quick=[];const sec=rbSec();
-  if(sec){const off=(+stRb(act()).off||0)*1000;let best=null;for(const r of sec.rows){const m=r.total*1000-off;if(!best||Math.abs(m-snap)<Math.abs(best.m-snap))best={m,r};}
+  if(sec){const off=(+nav().off||0)*1000;let best=null;for(const r of sec.rows){const m=r.total*1000-off;if(!best||Math.abs(m-snap)<Math.abs(best.m-snap))best={m,r};}
     if(best&&Math.abs(best.m-snap)<=300)quick.push({label:'Τουλίπα '+best.r.n+' · '+Math.round(best.m)+' m',m:Math.round(best.m)});}
   const ss=stageState();if(ss){let bp=null;for(const p of ss.p.slice(1))if(!bp||Math.abs(p.d-snap)<Math.abs(bp.d-snap))bp=p;if(bp&&Math.abs(bp.d-snap)<=300)quick.push({label:'Σημείο '+ss.p.indexOf(bp)+' · '+bp.d+' m',m:bp.d});}
   openSheet({kind,snap,edit:true,value:Math.round(snap),quick,ok:'Εφαρμογή',
@@ -897,13 +897,13 @@ $('shOk').onclick=()=>{if(!SH)return;
     r.total=Math.round(t*1000)/1000;r.partial=pv==null?null:Math.round(pv*1000)/1000;
     if(r.total===r._o.total&&r.partial===r._o.partial)delete S.rbEdits[SH.key];else S.rbEdits[SH.key]={total:r.total,partial:r.partial};
     save();closeSheet();renderRbView(false);toast('Τουλίπα '+r.n+' αποθηκεύτηκε');return;}
-  if(SH.kind==='here'){const [i,j]=SH.key.split(':').map(Number),r=BOOK[i].rows[j],st=act(),rb=stRb(st);
+  if(SH.kind==='here'){const [i,j]=SH.key.split(':').map(Number),r=BOOK[i].rows[j],rb=nav();
     if($('shCheck').checked){const d=(r.total-(meters()/1000+(+rb.off||0)))*1000;rb.sec=i;L.corr+=d;save();closeSheet();tulipAnchor(r.total);showTab('nav');toast('Τουλίπα '+r.n+' · απόσταση '+sgn(d)+Math.round(Math.abs(d))+' m');}
     else{rb.sec=i;rb.off=Math.round((r.total-meters()/1000)*1000)/1000;G.seg=null;save();logEv('tulip_align',r.total,BOOK[i].name);closeSheet();showTab('nav');toast('Τουλίπες από την '+r.n+' · '+BOOK[i].name);}
     return;}
   if(SH.kind==='tulip'){const sec=rbSec(),n=parseInt($('shInput').value,10),r=sec&&sec.rows.find(x=>x.n===n);
     if(!r){toast('Δεν υπάρχει τουλίπα '+($('shInput').value||''));return;}
-    const st=act(),rb=stRb(st);
+    const rb=nav();
     if($('shCheck').checked){const d=(r.total-bookKm())*1000;L.corr+=d;closeSheet();toast('Στην τουλίπα '+n+' · απόσταση '+sgn(d)+Math.round(Math.abs(d))+' m');tulipAnchor(r.total);}
     else{rb.off=Math.round((r.total-meters()/1000)*1000)/1000;save();closeSheet();toast('Τουλίπες στοιχίστηκαν στην '+n+' (η απόσταση δεν άλλαξε)');}
     return;}
@@ -916,7 +916,11 @@ function mark(){
   const line=hms(now(),true)+' · '+fmt(ss.x/1000,3)+' km · '+(isFinite(dev)?sgn(dev)+fmt(Math.abs(dev),1)+' s':'—');
   logEv('mark',Math.round(ss.x),line);S.marks.unshift(line);S.marks=S.marks.slice(0,50);save();renderMarks();toast('Σημείο: '+line);
 }
-function zero(){logEv('zero');L.a0=L.a;L.b0=L.b;G.d0=gpsRaw();L.corr=0;G.seg=S.source==='gps'&&act()?{km:bookKm(),snap:gpsSnap()}:null;L.hist=[];L.prevX=0;toast('Απόσταση μηδενίστηκε');}
+function zero(){const n=nav(),bk=bookKm(),sec=BOOK[n.sec];
+  if(sec){const last=sec.rows[sec.rows.length-1].total;
+    if(Math.abs(bk-last)<0.3&&BOOK[n.sec+1]&&BOOK[n.sec+1].book===sec.book){n.sec++;n.off=0;}   // zeroed on the reset tulip at the end of the section
+    else n.off=bk<0.3?0:Math.round(bk*1000)/1000;}
+  logEv('zero');L.a0=L.a;L.b0=L.b;G.d0=gpsRaw();L.corr=0;G.seg=S.source==='gps'&&act()?{km:bookKm(),snap:gpsSnap()}:null;L.hist=[];L.prevX=0;toast('Απόσταση μηδενίστηκε');}
 function passDev(st,i){const p=pts(st);if(!st.pass||st.pass[i]==null||!p[i+1])return null;return (st.pass[i]-(st.start+p[i+1].t*1000))/1000;}
 function recordPass(st,i,t){st.pass=st.pass||[];st.pass[i]=t;st.idx=i+1;save();const d=passDev(st,i);logEv('pass',i+1,d==null?'':'dev '+d.toFixed(2)+' s');
   if(d!=null)toast('Σημείο '+(i+1)+': '+sgn(d)+fmt(Math.abs(d),1)+' s'+(Math.abs(d)<=(+S.tol||0.3)?' ✓':d>0?' αργά':' νωρίς'));renderEditor();}
@@ -961,8 +965,14 @@ const BOOKT=[...new Set(BOOK.map(s=>s.book))];
 const latestBookSec=()=>{const t=BOOKT[BOOKT.length-1];return Math.max(0,BOOK.findIndex(s=>s.book===t));};
 const secLabel=(s)=>s.name+' · '+fmt(s.length,3)+' km · '+s.rows.length+' τουλίπες'+(s.kind?' · '+s.kind:'');
 const stRb=st=>{if(!st.rb)st.rb={sec:(S.rb&&S.rb.sec)||1,off:0};return st.rb;};
-const rbSec=()=>{const st=act();return st?BOOK[stRb(st).sec]||null:null;};
-const bookKm=()=>meters()/1000+(+stRb(act()).off||0);
+/* navigation: where we are in the road book. It follows the meters on its own — through stage finishes, liaisons
+   and section resets — and is set to a stage's start tulip only when that stage starts. */
+const nav=()=>{if(!S.nav||!BOOK[S.nav.sec]){const st=act(),rb=st?stRb(st):{sec:0,off:0};S.nav={sec:BOOK[rb.sec]?rb.sec:0,off:+rb.off||0};}return S.nav;};
+const rbSec=()=>BOOK[nav().sec]||null;
+const bookKm=()=>meters()/1000+(+nav().off||0);
+// passing the last tulip of a section (a reset to 0,00) carries on into the next section of the book
+function navRoll(){const n=nav(),sec=BOOK[n.sec],nx=BOOK[n.sec+1];if(!sec||!nx||nx.book!==sec.book)return;
+  const last=sec.rows[sec.rows.length-1].total;if(bookKm()>=last+0.0005){n.sec++;n.off=Math.round((n.off-last)*1000)/1000;save();logEv('nav_section',n.sec,nx.name);}}
 function snapTulip(){
   const s=rbSec();if(!s){toast('Δεν έχει επιλεγεί roadbook');return;}
   const x=bookKm();let best=null;for(const r of s.rows)if(!best||Math.abs(r.total-x)<Math.abs(best.total-x))best=r;
@@ -971,7 +981,7 @@ function snapTulip(){
 }
 // tulips that coincide with a timing point (within 25 m) — "measurement" tulips
 function measureMap(st,sec){
-  const m=new Map();if(!sec||st.mode!=='points')return m;const off=+stRb(st).off||0,p=pts(st);
+  const m=new Map();if(!sec||st.mode!=='points'||sec!==BOOK[stRb(st).sec])return m;const off=+stRb(st).off||0,p=pts(st);
   for(let i=1;i<p.length;i++){const km=p[i].d/1000+off;let best=-1,bd=1;
     sec.rows.forEach((r,j)=>{const dd=Math.abs(r.total-km);if(dd<bd){bd=dd;best=j;}});
     if(best>=0&&bd<=0.025&&!m.has(best))m.set(best,{i,t:p[i].t,d:p[i].d});}
@@ -984,7 +994,7 @@ function stackList(st,view){
   // a measurement tulip stays on screen until 5 s after its ideal time
   if(st.start){let held=null;mm.forEach((v,j)=>{if(rows[j].total<=x+0.0005&&now()<st.start+v.t*1000+5000)held=j;});if(held!=null)out.push({j:held,held:true});}
   // a tulip just passed by the meters stays on top for TUL_HOLD km (~60 m) more: if the GPS reads a little long, it is not lost before you reach it
-  if(!out.length){let pj=-1;rows.forEach((r,j)=>{if(r.total<=x+0.0005&&x-r.total<=TUL_HOLD)pj=j;});if(pj>0)out.push({j:pj,passed:true});}
+  if(!out.length){let pj=-1;rows.forEach((r,j)=>{if(r.total<=x+0.0005&&x-r.total<=TUL_HOLD)pj=j;});if(pj>=0&&(pj>0||x>0.0005))out.push({j:pj,passed:true});}
   const i0=rows.findIndex(r=>r.total>x+0.0005);
   // the next tulip joins the one on top only when it is close (under TUL_NEAR km after it), so a near tulip is never missed
   if(i0>=0){if(!(out.length&&out[0].passed&&rows[i0].total-rows[out[0].j].total>=TUL_NEAR))out.push({j:i0});
@@ -999,7 +1009,7 @@ function renderStack(st,view){
   for(let k=0;k<3;k++){
     const it=list[k],el=$('ti'+k);el.hidden=!it;if(!it)continue;
     el.classList.toggle('measure',!!it.m);el.classList.toggle('near',!!it.m&&!it.held&&(it.r.total-x)*1000<=300);el.classList.toggle('held',!!it.held);el.classList.toggle('passed',!!it.passed);el.classList.toggle('compact',list.length>=3||k>0);
-    const key=stRb(st).sec+':'+it.j;
+    const key=nav().sec+':'+it.j;
     if(el.dataset.k!==key){el.dataset.k=key;$('ti'+k+'img').src=it.r.src;$('ti'+k+'img').alt='Τουλίπα '+it.r.n;
       if(it.r.isrc){$('ti'+k+'inf').src=it.r.isrc;$('ti'+k+'inf').alt=it.r.info||'Πληροφορίες';$('ti'+k+'inf').hidden=false;$('ti'+k+'txt').hidden=true;}
       else{$('ti'+k+'inf').hidden=true;$('ti'+k+'txt').hidden=false;$('ti'+k+'txt').textContent=it.r.info||'';}}
@@ -1035,7 +1045,7 @@ function renderRbView(scrollNow){
     BOOKT.map(t=>'<optgroup label="Τμήματα · '+esc(t)+'">'+BOOK.map((s,i)=>s.book===t?'<option value="s:'+i+'">'+esc(secLabel(s))+'</option>':'').join('')+'</optgroup>').join('');
   $('rbvSec').value=rbvSel;
   const items=rbvItems(rbvSel);if(!items.length){$('rbvBody').innerHTML='';$('rbvInfo').textContent='Δεν υπάρχουν τουλίπες σε αυτή την προβολή.';return;}
-  const cur=stRb(st),mm=measureMap(st,BOOK[cur.sec]),x=bookKm();
+  const cur=nav(),mm=measureMap(st,BOOK[cur.sec]),x=bookKm();
   const nextJ=BOOK[cur.sec]?BOOK[cur.sec].rows.findIndex(r=>r.total>x+0.0005):-1;let bad=0,n=0,edited=0,scrollTo=null;
   $('rbvBody').innerHTML=items.map(it=>{
     if(it.head)return '<tr class="rhead"><td colspan="6">'+esc(it.head)+'</td></tr>';
@@ -1066,7 +1076,7 @@ function pickStart(key){const [i,j]=key.split(':').map(Number),r=BOOK[i].rows[j]
 // "I am at this tulip": works across sections (liaison → stage), the tulips follow from here
 function hereTulip(key){
   if(SH)return;const [i,j]=key.split(':').map(Number),r=BOOK[i]&&BOOK[i].rows[j];if(!r)return;
-  const st=act(),same=stRb(st).sec===i;
+  const st=act(),same=nav().sec===i;
   openSheet({kind:'here',key,edit:false,ok:'Είμαι εδώ',check:'Διόρθωσε και τα μέτρα της ειδικής ('+st.name+')',
     title:'Τουλίπα '+r.n+' · '+fmt(r.total,3)+' km',text:BOOK[i].name+(same?'':' — άλλο τμήμα από αυτό που ακολουθείς τώρα. Οι τουλίπες θα συνεχίσουν από εδώ.')});
   $('shCheck').checked=same;
@@ -1082,6 +1092,10 @@ function setupRb(){
 }
 
 /* ---------- navigation render ---------- */
+// no stage running (finished, not set, waiting): the plain route — book km and the next tulip, always live
+function liaison(head,extra){const sec=rbSec(),x=bookKm();let nx=null;if(sec)nx=sec.rows.find(r=>r.total>x+0.0005);
+  setDev('idle',(head||'Απλή διαδρομή')+(sec?' · '+sec.name:''),'ΔΙΑΔΡΟΜΗ',(sec?fmt(Math.max(0,x),2):fmt(meters()/1000,2))+'<small> km</small>',
+    !sec?'Χωρίς roadbook · μέτρα από το μηδέν':nx?'Επόμενη τουλίπα <b>'+nx.n+'</b> σε <b>'+Math.max(0,Math.round((nx.total-x)*1000))+'</b> m':'Τέλος τμήματος βιβλίου',extra||'');}
 function setDev(tone,label,verdict,big,sub,sub2,pct,pillTone){
   $('verdict').style.background=pillTone?'var(--'+pillTone+')':'';
   $('dev').dataset.tone=tone;$('devLabel').textContent=label;$('verdict').textContent=verdict;$('devBig').innerHTML=big;$('devSub').innerHTML=sub||'&nbsp;';$('devSub2').innerHTML=sub2||'';
@@ -1110,7 +1124,7 @@ function renderMeas(ss,r){
   $('mTime').textContent=rq==null?'—':rq>=0?'σε '+cdTxt(rq/1000)+' s':'καθυστέρηση +'+cdTxt(-rq/1000,true)+' s';
   $('mBar').style.width=Math.max(0,Math.min(100,(1-rem/(nx.d-prev.d))*100))+'%';
   const sec=rbSec();let tul=null;if(sec)measureMap(st,sec).forEach((v,j)=>{if(v.i===q)tul=sec.rows[j];});
-  const k=tul?stRb(st).sec+':'+tul.n:'';
+  const k=tul?nav().sec+':'+tul.n:'';
   if($('mPaper').dataset.k!==k){$('mPaper').dataset.k=k;$('mPaper').hidden=!tul;$('mNo').hidden=!!tul;
     if(tul){$('mImg').src=tul.src;$('mImg').alt='Τουλίπα '+tul.n;
       if(tul.isrc){$('mInf').src=tul.isrc;$('mInf').alt=tul.info||'Πληροφορίες';$('mInf').hidden=false;$('mInfTxt').hidden=true;}else{$('mInf').hidden=true;$('mInfTxt').hidden=false;$('mInfTxt').textContent=tul.info||'';}}}
@@ -1127,7 +1141,10 @@ function autoStart(ss){
   const key=st.id+':'+st.start;
   if(st.start&&ss.elapsed!=null&&ss.elapsed>=0&&ss.elapsed<3&&startedKey!==key){
     startedKey=key;
-    if(S.autoZero&&Math.abs(L.speed)<5&&ss.x<50){zero();toast('Εκκίνηση! Η απόσταση μηδενίστηκε');}else toast('Εκκίνηση!');
+    const rb=stRb(st);
+    if(S.autoZero&&Math.abs(L.speed)<5){zero();if(BOOK[rb.sec]){S.nav={sec:rb.sec,off:+rb.off||0};if(G.seg)G.seg.km=bookKm();}toast('Εκκίνηση! Η απόσταση μηδενίστηκε');}
+    else{if(BOOK[rb.sec])S.nav={sec:rb.sec,off:Math.round(((+rb.off||0)-meters()/1000)*1000)/1000};toast('Εκκίνηση!');}
+    save();
   }
 }
 function render(force){
@@ -1142,7 +1159,7 @@ function render(force){
   $('frozenTag').hidden=!L.frozen;
 
   let ss=stageState();if(!ss)return;
-  tickPoints(ss);ss=stageState();
+  navRoll();tickPoints(ss);ss=stageState();
   const st=ss.st,pm=st.mode==='points';
   $('stageName').textContent=(st.name||'Ειδική').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
   $('stageInfo').textContent=!ss.n?'Χωρίς '+(pm?'σημεία':'τμήματα'):ss.done?'Τέλος ειδικής':pm?'Σημείο '+ss.k+' από '+ss.n:'Τμήμα '+ss.k+' από '+ss.n+' · ΜΩΤ '+ss.next.v;
@@ -1166,14 +1183,15 @@ function render(force){
 
   setNext(ss,pm);
   if(view==='timing'&&(ss.elapsed==null||ss.elapsed<0||ss.done))renderMeas(ss,ss.next&&st.start?st.start+ss.next.t*1000-now():null);
-  if(!ss.n){setDev('idle','Ειδική','ΧΩΡΙΣ ΔΕΔΟΜΕΝΑ','—','Πρόσθεσε '+(pm?'σημεία':'τμήματα')+' στην καρτέλα «Ειδικές»');return;}
-  if(ss.elapsed==null){setDev('idle','Ειδική','ΑΝΑΜΟΝΗ','—','Όρισε ώρα εκκίνησης');return;}
+  if(!ss.n){liaison('',st.name+': χωρίς '+(pm?'σημεία':'τμήματα'));return;}
+  if(ss.elapsed==null){liaison('',st.name+': όρισε ώρα εκκίνησης');return;}
   if(ss.elapsed<0){
     const r=-ss.elapsed*1000;countdown(st.id+':start',r);
-    setDev(r<=10000?'alert':'idle','Εκκίνηση ειδικής σε','ΑΝΑΜΟΝΗ',mmss(-ss.elapsed).replace(/,\d$/,''),'Εκκίνηση '+hms(st.start),
+    if(r>120000){liaison('',st.name+' εκκίνηση <b>'+hms(st.start)+'</b> · σε '+elTxt(ss.elapsed).replace(MINUS,''));return;}   // far from the start: show the route
+    setDev(r<=10000?'alert':'idle','Εκκίνηση ειδικής σε','ΑΝΑΜΟΝΗ',cdTxt(r/1000),'Εκκίνηση '+hms(st.start),
       pm?'1ο σημείο: <b>'+ss.p[1].d+'</b> m στα <b>'+secTxt(ss.p[1].t)+'</b> s':'1ο τμήμα: ΜΩΤ <b>'+ss.p[1].v+'</b> έως <b>'+ss.p[1].d+'</b> m');return;
   }
-  if(ss.done){const lv=liveDev(ss);setDev('idle','Ειδική','ΤΕΛΟΣ','✓',pm?'Όλα τα σημεία πέρασαν':'Τέλος τμημάτων',pm?'':'Απόκλιση στο τέλος: '+sgn(lv.d)+fmt(Math.abs(lv.d),1)+' s');return;}
+  if(ss.done){const lv=liveDev(ss);liaison('',st.name+' ✓ τέλος'+(pm?'':' · απόκλιση '+sgn(lv.d)+fmt(Math.abs(lv.d),1)+' s'));return;}
   const lv=liveDev(ss);
   const target=st.start+ss.next.t*1000,r=target-now();
   countdown(st.id+':'+ss.k,r);
