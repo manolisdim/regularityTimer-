@@ -938,14 +938,19 @@ function recordPass(st,i,t){st.pass=st.pass||[];st.pass[i]=t;st.idx=i+1;save();c
 function nextPoint(){const st=act();if(!st||st.mode!=='points')return;const n=pts(st).length-1;if((st.idx||0)>=n)return;
   if(!st.start||now()<st.start){toast('Η ειδική δεν έχει ξεκινήσει');return;}recordPass(st,st.idx||0,now());}
 function prevPoint(){const st=act();if(!st||!(st.idx>0))return;st.idx--;st.pass.length=st.idx;save();renderEditor();toast('Πίσω στο σημείο '+(st.idx+1));}
+let crossAt={k:'',t:0};   // when the meters first crossed the current point
 function tickPoints(ss){
   const st=ss.st;if(st.mode!=='points'||ss.elapsed==null||ss.elapsed<0)return;
   const p=ss.p,n=ss.n;st.idx=st.idx||0;st.pass=st.pass||[];
   if(S.passMode==='auto'){
     const t=now();
     while(st.idx<n&&ss.x>=p[st.idx+1].d){
-      const d=p[st.idx+1].d;const f=ss.x>L.prevX?(d-L.prevX)/(ss.x-L.prevX):1;const t0=L.prevT||t;
-      recordPass(st,st.idx,Math.round(t0+Math.max(0,Math.min(1,f))*(t-t0)));
+      const d=p[st.idx+1].d,key=st.id+':'+st.start+':'+st.idx;
+      if(crossAt.k!==key){const f=ss.x>L.prevX?(d-L.prevX)/(ss.x-L.prevX):1;const t0=L.prevT||t;crossAt={k:key,t:Math.round(t0+Math.max(0,Math.min(1,f))*(t-t0))};}
+      // the meters say we are past the point, but its ideal time has not come yet: GPS may be reading long —
+      // keep this point (countdown and tulip) on screen until its ideal time, then move on
+      if(t<st.start+p[st.idx+1].t*1000+1000)break;
+      recordPass(st,st.idx,crossAt.t);
     }
   }else{
     while(st.idx<n&&now()-(st.start+p[st.idx+1].t*1000)>10000){st.pass[st.idx]=null;st.idx++;save();renderEditor();}
@@ -1490,7 +1495,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v15 · 17/10 11:10 · χειροκίνητη εκκίνηση';
+window.APP_VER='v16 · 17/10 12:00 · σημείο κρατιέται ως την ώρα του';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
