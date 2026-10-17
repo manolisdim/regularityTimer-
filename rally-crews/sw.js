@@ -1,6 +1,6 @@
 // Regularity Crews — κρατάει την εφαρμογή διαθέσιμη χωρίς internet.
 // Τα δεδομένα του αγώνα τα αποθηκεύει η ίδια η σελίδα. Εδώ κρατάμε μόνο τα αρχεία της εφαρμογής.
-const VERSION = "rc-v9";
+const VERSION = "rc-v10";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
