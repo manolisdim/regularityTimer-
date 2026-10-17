@@ -603,6 +603,7 @@ table input{min-width:84px}
   <section class="view" id="v-set" hidden>
     <div class="split">
       <div class="stack">
+        <p class="note" id="appVer" style="margin:0 4px"></p>
         <div class="card stack">
           <span class="label">Επίσημη ώρα · συγχρονισμός με time.is</span>
           <p class="note">Άνοιξε το time.is σε άλλη συσκευή. Γράψε μια ώρα λίγο μπροστά και πάτα «Ορισμός» ακριβώς τη στιγμή που το time.is τη δείχνει. Ή πάτα «Τώρα είναι :00» τη στιγμή που τα δευτερόλεπτα γίνονται 00.</p>
@@ -1465,7 +1466,7 @@ $('pageBtn').onclick=togglePage;
  $('v-nav').addEventListener('touchend',e=>{if(sx==null||!document.documentElement.classList.contains('phone'))return;const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;sx=null;
    if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.5){const m=document.documentElement.classList.contains('more');if((dx<0&&!m)||(dx>0&&m))togglePage();}},{passive:true});}
 function showTab(v){if(v!=='rb')rbPickMode=false;document.documentElement.classList.remove('menu-open');document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',x.dataset.v===v));
-  document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);if(v==='stage')renderEditor();if(v==='rb'){if(!rbvSel||rbvSel.startsWith('st:'))rbvSel='st:'+act().id;renderRbView(true);}if(v==='set'){seedSyncT();showOff();logInfo();}}
+  document.querySelectorAll('.view').forEach(el=>el.hidden=el.id!=='v-'+v);if(v==='stage')renderEditor();if(v==='rb'){if(!rbvSel||rbvSel.startsWith('st:'))rbvSel='st:'+act().id;renderRbView(true);}if(v==='set'){$('appVer').textContent='Έκδοση εφαρμογής: '+(window.APP_VER||'—')+' · ειδικές: '+S.stages.length;seedSyncT();showOff();logInfo();}}
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.v));
 $('clockBtn').onclick=()=>showTab('set');
 async function wake(){try{if('wakeLock' in navigator)await navigator.wakeLock.request('screen');}catch(e){}}
@@ -1487,4 +1488,15 @@ setInterval(()=>{render(false);renderCal();},100);
 window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
-<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
+<script>
+window.APP_VER='v14 · 17/10 11:00';
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
+    // look for a new version whenever the app comes back to the screen
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update().catch(()=>{});});
+  }).catch(()=>{});
+  // a new version took over: say so, but never reload by itself (that would lose the meters during a stage)
+  let had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return;}const t=document.getElementById('toast');if(t){t.textContent='Νέα έκδοση διαθέσιμη · κλείσε και άνοιξε την εφαρμογή όταν σταματήσεις';t.hidden=false;setTimeout(()=>t.hidden=true,8000);}});
+}
+</script>
