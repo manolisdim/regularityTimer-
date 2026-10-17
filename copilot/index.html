@@ -381,6 +381,13 @@ table input{min-width:84px}
 :root.phone.land #dev[data-mode=route] .mrow{display:none!important}
 :root.phone.land #devSub2 b{font-size:inherit}
 #ptBody input[id^=ps]{min-width:6.2em}
+.tdist{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:nowrap}
+:root.phone:not(.land) .titem .tdist,:root.phone:not(.land).navfocus:not(.timefocus) .titem .tdist{font-size:36px}
+.tdist .tkm{color:var(--ok)}
+.devnow{display:block;font-family:var(--display);font-weight:700;font-size:clamp(80px,12vw,165px);line-height:.95;letter-spacing:-.02em}
+.devnow small{font-size:.35em}
+:root.phone .devnow{font-size:72px}
+:root.phone.land .devnow{font-size:46px}
 </style>
 
 <div class="app">
@@ -1049,10 +1056,10 @@ function renderStack(st,view){
       else{$('ti'+k+'inf').hidden=true;$('ti'+k+'txt').hidden=false;$('ti'+k+'txt').textContent=it.r.info||'';}}
     {const rs=rbSec().rows;$('ti'+k+'l').textContent='Τουλίπα '+it.r.n+' / '+rs[rs.length-1].n;}
     $('ti'+k+'b').hidden=!it.m;if(it.m)$('ti'+k+'b').textContent=(!it.held&&(it.r.total-x)*1000<=300?'ΠΛΗΣΙΑΖΕΙ · ':'')+'ΜΕΤΡΗΣΗ · σημείο '+it.m.i+' · '+secTxt(it.m.t)+' s';
-    $('ti'+k+'k').textContent=fmt(it.r.total,3)+' km';
-    if(it.held){const left=Math.max(0,(st.start+it.m.t*1000+5000-now())/1000);$('ti'+k+'d').innerHTML='πέρασες<small> · '+Math.ceil(left)+' s</small>';}
-    else if(it.passed)$('ti'+k+'d').innerHTML='πέρασε<small> · '+Math.round((x-it.r.total)*1000)+' m</small>';
-    else $('ti'+k+'d').innerHTML='σε '+Math.max(0,Math.round((it.r.total-x)*1000))+'<small> m</small>';
+    $('ti'+k+'k').textContent='';const km='<span class="tkm">'+fmt(it.r.total,3)+'<small> km</small></span>';
+    if(it.held){const left=Math.max(0,(st.start+it.m.t*1000+5000-now())/1000);$('ti'+k+'d').innerHTML='<span>πέρασες<small> · '+Math.ceil(left)+' s</small></span>'+km;}
+    else if(it.passed)$('ti'+k+'d').innerHTML='<span>πέρασε<small> · '+Math.round((x-it.r.total)*1000)+' m</small></span>'+km;
+    else $('ti'+k+'d').innerHTML='<span>σε '+Math.max(0,Math.round((it.r.total-x)*1000))+'<small> m</small></span>'+km;
   }
 }
 /* ---------- roadbook edits (stored per device, applied over the parsed book) ---------- */
@@ -1142,7 +1149,8 @@ $('dev').addEventListener('click',e=>{const b=e.target.closest('[data-auto]');if
 function autoBtns(k){$('autoBtns').hidden=!k;$('autoArmBtn').hidden=k!=='arm';$('autoGoBtn').hidden=k!=='go';}
 function setDev(tone,label,verdict,big,sub,sub2,pct,pillTone){
   $('verdict').style.background=pillTone?'var(--'+pillTone+')':'';
-  autoBtns(null);$('dev').dataset.mode='';$('dev').dataset.tone=tone;$('devLabel').textContent=label;$('verdict').textContent=verdict;$('devBig').innerHTML=big;$('devSub').innerHTML=sub||'&nbsp;';$('devSub2').innerHTML=sub2||'';
+  autoBtns(null);$('dev').dataset.mode='';$('dev').dataset.tone=tone;$('devLabel').textContent=label;$('verdict').textContent=verdict;$('devBig').innerHTML=big;$('devSub').innerHTML=sub||'&nbsp;';{const dn=$('devSub').querySelector('.devnow');if(dn)dn.style.fontSize=Math.round(parseFloat(getComputedStyle($('devBig')).fontSize)*0.75)+'px';}   // deviation: ¾ of the countdown
+  $('devSub2').innerHTML=sub2||'';
   $('marker').style.left=(pct==null?50:pct)+'%';
 }
 function liveDev(ss){ // + = late (behind the ideal), − = early
@@ -1284,7 +1292,7 @@ function render(force){
     const alert=r>0&&r<=10000;
     setDev(alert?'alert':r<0?'late':'idle','Επόμενη μέτρηση · σημείο '+ss.k+' / '+ss.n+' · '+ss.next.d+' m',r<0?'ΚΑΘΥΣΤΕΡΗΣΗ':lv.verdict,
       (r>=0?cdTxt(r/1000):'+'+cdTxt(-r/1000,true))+'<small>s</small>',
-      'Τώρα: <span class="'+(alert?'':'d-'+lv.tone)+'">'+sgn(lv.d)+fmt(Math.abs(lv.d),1)+' s</span> · '+lv.mtxt,'',lv.pct,alert||r<0?null:lv.tone);
+      '<span class="devnow '+(alert?'':'d-'+lv.tone)+'">'+sgn(lv.d)+fmt(Math.abs(lv.d),1)+'<small> s</small></span>','',lv.pct,alert||r<0?null:lv.tone);
     renderMeas(ss,r);
   }else{
     setDev(lv.tone,'Απόκλιση από ιδανικό',lv.verdict,sgn(lv.d)+fmt(Math.abs(lv.d),1)+'<small>s</small>',lv.mtxt,'',lv.pct);
@@ -1513,7 +1521,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v21 · 17/10 13:10 · ακριβή μπιπ αντίστροφης';
+window.APP_VER='v23 · 17/10 20:50 · km τουλίπας πράσινα · απόκλιση σε νούμερο';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
