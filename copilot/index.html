@@ -938,12 +938,21 @@ function recordPass(st,i,t){st.pass=st.pass||[];st.pass[i]=t;st.idx=i+1;save();c
 function nextPoint(){const st=act();if(!st||st.mode!=='points')return;const n=pts(st).length-1;if((st.idx||0)>=n)return;
   if(!st.start||now()<st.start){toast('Η ειδική δεν έχει ξεκινήσει');return;}recordPass(st,st.idx||0,now());}
 function prevPoint(){const st=act();if(!st||!(st.idx>0))return;st.idx--;st.pass.length=st.idx;save();renderEditor();toast('Πίσω στο σημείο '+(st.idx+1));}
-let crossAt={k:'',t:0};   // when the meters first crossed the current point
+let crossAt={k:'',t:0},snapKey='';   // when the meters first crossed the current point
 function tickPoints(ss){
   const st=ss.st;if(st.mode!=='points'||ss.elapsed==null||ss.elapsed<0)return;
   const p=ss.p,n=ss.n;st.idx=st.idx||0;st.pass=st.pass||[];
   if(S.passMode==='auto'){
     const t=now();
+    // measurement tulip (a point that sits on a road book tulip): at its ideal time (countdown 0) we are at the tulip,
+    // so the meters are set to the point's distance (e.g. 1270 → 1300). Points without a tulip are left alone.
+    if(st.idx<n){const q=p[st.idx+1],key=st.id+':'+st.start+':'+st.idx;
+      if(t>=st.start+q.t*1000&&snapKey!==key){snapKey=key;
+        let onTulip=false;measureMap(st,BOOK[stRb(st).sec]).forEach(v=>{if(v.i===st.idx+1)onTulip=true;});
+        const diff=q.d-ss.x;
+        if(onTulip&&Math.abs(diff)<=200){L.corr+=diff;crossAt={k:key,t:st.start+q.t*1000};logEv('point_snap',st.idx+1,Math.round(diff)+' m');
+          toast('Τουλίπα μέτρησης '+(st.idx+1)+': μέτρα '+Math.round(ss.x)+' → '+q.d+' ('+sgn(diff)+Math.round(Math.abs(diff))+' m)');ss.x=meters();}
+        else if(onTulip)toast('Τουλίπα μέτρησης '+(st.idx+1)+': διαφορά '+Math.round(diff)+' m — δεν διορθώθηκε');}}
     while(st.idx<n&&ss.x>=p[st.idx+1].d){
       const d=p[st.idx+1].d,key=st.id+':'+st.start+':'+st.idx;
       if(crossAt.k!==key){const f=ss.x>L.prevX?(d-L.prevX)/(ss.x-L.prevX):1;const t0=L.prevT||t;crossAt={k:key,t:Math.round(t0+Math.max(0,Math.min(1,f))*(t-t0))};}
@@ -1495,7 +1504,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v16 · 17/10 12:00 · σημείο κρατιέται ως την ώρα του';
+window.APP_VER='v17 · 17/10 12:15 · διόρθωση μέτρων στις τουλίπες μέτρησης';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
