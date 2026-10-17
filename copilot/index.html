@@ -950,9 +950,8 @@ function tickPoints(ss){
       if(t>=st.start+q.t*1000&&snapKey!==key){snapKey=key;
         let onTulip=false;measureMap(st,BOOK[stRb(st).sec]).forEach(v=>{if(v.i===st.idx+1)onTulip=true;});
         const diff=q.d-ss.x;
-        if(onTulip&&Math.abs(diff)<=200){L.corr+=diff;crossAt={k:key,t:st.start+q.t*1000};logEv('point_snap',st.idx+1,Math.round(diff)+' m');
-          toast('Τουλίπα μέτρησης '+(st.idx+1)+': μέτρα '+Math.round(ss.x)+' → '+q.d+' ('+sgn(diff)+Math.round(Math.abs(diff))+' m)');ss.x=meters();}
-        else if(onTulip)toast('Τουλίπα μέτρησης '+(st.idx+1)+': διαφορά '+Math.round(diff)+' m — δεν διορθώθηκε');}}
+        if(onTulip){L.corr+=diff;crossAt={k:key,t:st.start+q.t*1000};logEv('point_snap',st.idx+1,Math.round(diff)+' m');
+          toast('Τουλίπα μέτρησης '+(st.idx+1)+': μέτρα '+Math.round(ss.x)+' → '+q.d+' ('+sgn(diff)+Math.round(Math.abs(diff))+' m)');ss.x=meters();}}}
     while(st.idx<n&&ss.x>=p[st.idx+1].d){
       const d=p[st.idx+1].d,key=st.id+':'+st.start+':'+st.idx;
       if(crossAt.k!==key){const f=ss.x>L.prevX?(d-L.prevX)/(ss.x-L.prevX):1;const t0=L.prevT||t;crossAt={k:key,t:Math.round(t0+Math.max(0,Math.min(1,f))*(t-t0))};}
@@ -1504,7 +1503,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v17 · 17/10 12:15 · διόρθωση μέτρων στις τουλίπες μέτρησης';
+window.APP_VER='v18 · 17/10 12:12 · διόρθωση μέτρων στις τουλίπες μέτρησης (χωρίς όριο)';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
