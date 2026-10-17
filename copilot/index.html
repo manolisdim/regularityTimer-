@@ -375,6 +375,11 @@ table input{min-width:84px}
 :root.phone.land .rbt .paper{max-width:min(100%,calc((100dvh - 150px) * 1.6));margin:0 auto}
 :root.phone.land #v-rb .rbctl{padding:6px 10px}
 :root.phone.land #v-rb #rbvInfo{display:none}
+.autobtns{display:flex;justify-content:center;margin-top:8px}.autobtns .btn{min-height:48px;font-size:17px;padding:8px 18px}
+:root.phone.land .autobtns{margin-top:4px}.autobtns [hidden]{display:none}
+#dev[data-mode=route] .scale,#dev[data-mode=route] .scale-l{display:none}
+:root.phone.land #dev[data-mode=route] .mrow{display:none!important}
+:root.phone.land #devSub2 b{font-size:inherit}
 </style>
 
 <div class="app">
@@ -407,6 +412,7 @@ table input{min-width:84px}
           <div class="big num" id="devBig">—</div>
           <div class="sub num" id="devSub">&nbsp;</div>
           <div class="sub2 num" id="devSub2"></div>
+          <div class="autobtns" id="autoBtns" hidden><button class="btn primary" data-auto="arm" id="autoArmBtn">Είμαι στην εκκίνηση</button><button class="btn primary" data-auto="go" id="autoGoBtn">Εκκίνηση τώρα</button></div>
         </div>
         <div class="mrow" id="mRow" hidden>
           <button class="mbig num" id="mBig" aria-label="Απόσταση τώρα, πάτα για διόρθωση">0<small> m</small></button>
@@ -1027,8 +1033,15 @@ function renderStack(st,view){
 }
 /* ---------- roadbook edits (stored per device, applied over the parsed book) ---------- */
 S.rbEdits=S.rbEdits||{};
-// a new road book replaces the old ones: edits and stage links by section index no longer apply
 {const id=BOOKT.join('|')+'#'+BOOK.length;if(S.bookId!==id){S.rbEdits={};for(const s of S.stages)s.rb={sec:latestBookSec(),off:0};S.bookId=id;save();}}
+/* official stages from the organiser's sheet (24 Ώρες Ελλάδα 2026, legs 1–2). All are AUTO START: the clock starts when
+   the car leaves the start (any time inside the window). Loaded once, replacing the stages on the device. */
+const OFFICIAL={id:'24h2026-L12-v1',day:[2026,9,17],ss:[{"n":1,"sec":1,"o":"10:26","c":"12:26","v":49,"nm":"Γυμνό","p":[[1100,80.8],[3227,237.1],[4607,338.5],[6309,463.5],[7608,559.0],[9171,673.8],[10160,746.4],[13077,960.8],[14413,1058.9]]},{"n":2,"sec":2,"o":"10:46","c":"12:46","v":45,"nm":"Θαρρούνια","p":[[1528,122.2],[2946,235.7],[5696,455.7]]},{"n":3,"sec":3,"o":"11:34","c":"13:34","v":49,"nm":"Πόρτο Μπούφαλο","p":[[3157,231.9],[3959,290.9],[5292,388.8],[8437,619.9]]},{"n":4,"sec":4,"o":"12:02","c":"14:02","v":45,"nm":"Λιμνιώνας","p":[[1915,153.2],[3512,281.0]]},{"n":5,"sec":5,"o":"12:08","c":"14:08","v":47,"nm":"Πολυπόταμος","p":[[1744,133.6],[3141,240.6],[4738,362.9],[6800,520.9]]},{"n":6,"sec":6,"o":"12:57","c":"14:57","v":47,"nm":"Παραδείσι","p":[[2208,169.1],[3602,275.9],[4878,373.6],[6270,480.3],[8423,645.2],[11502,881.0],[14006,1072.8],[15935,1220.6],[16983,1300.8]]},{"n":7,"sec":8,"o":"15:00","c":"17:00","v":47,"nm":"Καλλιανοί","p":[[2512,192.4],[4236,324.5],[6725,515.1],[8588,657.8],[10234,783.9],[11283,864.2],[12139,929.8],[13902,1064.8],[15865,1215.2]]},{"n":8,"sec":9,"o":"15:47","c":"17:47","v":46,"nm":"Ν. Στύρα","p":[[2114,165.4],[2902,227.1],[3733,292.1]]},{"n":9,"sec":10,"o":"16:08","c":"18:08","v":48,"nm":"Αγ. Δημήτριος","p":[[1817,136.3],[3149,236.2],[5042,378.2],[5637,422.8],[6529,489.7],[8244,618.3],[9686,726.5]]},{"n":10,"sec":11,"o":"17:08","c":"19:08","v":45,"nm":"Ανάβαση Κύμης","p":[[1102,88.2],[2182,174.6],[2866,229.3],[3590,287.2]]},{"n":11,"sec":12,"o":"17:36","c":"19:36","v":45,"nm":"Βρύση","p":[[1792,143.4],[3961,316.9],[6057,484.6]]},{"n":12,"sec":13,"o":"17:50","c":"19:50","v":45,"nm":"Μακρυχώρι","p":[[2353,188.2],[3668,293.4]]},{"n":13,"sec":14,"o":"18:01","c":"20:01","v":49,"nm":"Σέτα","p":[[1396,102.6],[2680,196.9],[4061,298.4],[5740,421.7],[7384,542.5],[8910,654.6],[11727,861.6]]},{"n":14,"sec":15,"o":"18:32","c":"20:32","v":49,"nm":"Γέροντας","p":[[1342,98.6],[3103,228.0],[5356,393.5]]},{"n":15,"sec":16,"o":"18:52","c":"20:52","v":46,"nm":"Πούρνος","p":[[1783,139.5],[2916,228.2]]}]};
+if(S.preset!==OFFICIAL.id){const at=(hm)=>{const [H,M]=hm.split(':').map(Number);return new Date(OFFICIAL.day[0],OFFICIAL.day[1],OFFICIAL.day[2],H,M,0,0).getTime();};
+  S.stages=OFFICIAL.ss.map(x=>({id:'ss'+x.n,name:'ΕΔ'+x.n+' · '+x.nm,start:null,auto:true,win:[at(x.o),at(x.c)],avg:x.v,mode:'points',segs:[],
+    points:x.p.map(q=>({m:q[0],s:q[1],c:0})),pass:[],idx:0,rb:{sec:x.sec,off:0}}));
+  const t=Date.now(),nx=S.stages.find(s=>t<s.win[1])||S.stages[S.stages.length-1];S.active=nx.id;S.preset=OFFICIAL.id;save();}
+// a new road book replaces the old ones: edits and stage links by section index no longer apply
 BOOK.forEach((sec,i)=>sec.rows.forEach((r,j)=>{r._o={total:r.total,partial:r.partial};const e=S.rbEdits[i+':'+j];if(e){r.total=e.total;r.partial=e.partial;}}));
 /* ---------- roadbook viewer: whole book, a book section, or one stage ---------- */
 let rbvSel=null;
@@ -1099,10 +1112,13 @@ function setupRb(){
 // no stage running (finished, not set, waiting): the plain route — book km and the next tulip, always live
 function liaison(head,extra){const sec=rbSec(),x=bookKm();let nx=null;if(sec)nx=sec.rows.find(r=>r.total>x+0.0005);
   setDev('idle',(head||'Απλή διαδρομή')+(sec?' · '+sec.name:''),'ΔΙΑΔΡΟΜΗ',(sec?fmt(Math.max(0,x),2):fmt(meters()/1000,2))+'<small> km</small>',
-    !sec?'Χωρίς roadbook · μέτρα από το μηδέν':nx?'Επόμενη τουλίπα <b>'+nx.n+'</b> σε <b>'+Math.max(0,Math.round((nx.total-x)*1000))+'</b> m':'Τέλος τμήματος βιβλίου',extra||'');}
+    !sec?'Χωρίς roadbook · μέτρα από το μηδέν':nx?'Επόμενη τουλίπα <b>'+nx.n+'</b> σε <b>'+Math.max(0,Math.round((nx.total-x)*1000))+'</b> m':'Τέλος τμήματος βιβλίου',extra||'');$('dev').dataset.mode='route';}
+$('dev').addEventListener('click',e=>{const b=e.target.closest('[data-auto]');if(!b)return;const st=act();if(!st)return;
+  if(b.dataset.auto==='arm')armAuto(st,true);else if(b.dataset.auto==='go')startAuto(st,now(),'button');});
+function autoBtns(k){$('autoBtns').hidden=!k;$('autoArmBtn').hidden=k!=='arm';$('autoGoBtn').hidden=k!=='go';}
 function setDev(tone,label,verdict,big,sub,sub2,pct,pillTone){
   $('verdict').style.background=pillTone?'var(--'+pillTone+')':'';
-  $('dev').dataset.tone=tone;$('devLabel').textContent=label;$('verdict').textContent=verdict;$('devBig').innerHTML=big;$('devSub').innerHTML=sub||'&nbsp;';$('devSub2').innerHTML=sub2||'';
+  autoBtns(null);$('dev').dataset.mode='';$('dev').dataset.tone=tone;$('devLabel').textContent=label;$('verdict').textContent=verdict;$('devBig').innerHTML=big;$('devSub').innerHTML=sub||'&nbsp;';$('devSub2').innerHTML=sub2||'';
   $('marker').style.left=(pct==null?50:pct)+'%';
 }
 function liveDev(ss){ // + = late (behind the ideal), − = early
@@ -1136,8 +1152,41 @@ function renderMeas(ss,r){
   $('measCard').classList.toggle('warn',warn);$('mWarn').hidden=!warn;
 }
 let startedKey='';
+/* AUTO START. Armed when standing still (2 s) within 300 m of the stage's start tulip, inside the window — or by hand.
+   Armed = meters zeroed, road book on the start tulip. Every new stop while armed re-zeroes (queue creeping).
+   The clock starts when the car has really left (30 m and 15 km/h): start = moment it left the 0 (between the last
+   still sample and the first moving one). */
+let A={armed:false,id:null,still:0,t0:0,t1:0},AUTO=null;
+function armAuto(st,manual){zero();const rb=stRb(st);if(BOOK[rb.sec]){S.nav={sec:rb.sec,off:+rb.off||0};if(G.seg)G.seg.km=bookKm();}
+  const t=now();A={armed:true,id:st.id,still:t,t0:t,t1:0};save();logEv('auto_arm',st.name,manual?'manual':'');toast((manual?'Οπλίστηκε · ':'Στην εκκίνηση · ')+st.name+' · ξεκινά με την κίνηση');}
+function startAuto(st,t,why){st.start=Math.round(t/100)*100;st.idx=0;st.pass=[];startedKey=st.id+':'+st.start;A.armed=false;save();
+  logEv('auto_start',st.name,hms(st.start)+' '+why);toast('Εκκίνηση '+st.name+' '+hms(st.start,true));if(!$('v-stage').hidden)renderEditor();}
+function autoArm(ss){
+  const st=ss.st;if(!st.auto||st.start)return null;
+  const t=now(),open=st.win?st.win[0]:0,close=st.win?st.win[1]:9e15,rb=stRb(st),n=nav(),sec=BOOK[n.sec],v=Math.abs(L.speed);
+  let dist=null;   // metres still to drive to the start tulip, by the road book
+  if(n.sec===rb.sec)dist=((+rb.off||0)-bookKm())*1000;
+  else if(sec&&n.sec===rb.sec-1)dist=(sec.rows[sec.rows.length-1].total-bookKm()+(+rb.off||0))*1000;
+  const armed=A.armed&&A.id===st.id;
+  if(!armed){
+    if(dist!=null&&Math.abs(dist)<=300&&v<3&&t>=open-600000&&t<=close){if(!A.still||A.id!==st.id){A.still=t;A.id=st.id;}if(t-A.still>=2000)armAuto(st,false);}
+    else A.still=0;
+  }else{
+    const m=meters();
+    if(v<3&&m<30){if(!A.still)A.still=t;if(t-A.still>=2000&&m>=1){zero();if(BOOK[rb.sec]){S.nav={sec:rb.sec,off:+rb.off||0};}A.t1=0;}}   // stopped again: re-zero
+    else A.still=0;
+    if(m<1){A.t0=t;A.t1=0;}else if(!A.t1)A.t1=t;
+    if(m>=30&&v>=15)startAuto(st,A.t1?(A.t0+A.t1)/2:A.t0,'move');
+  }
+  return {dist,armed:A.armed&&A.id===st.id,open,close};
+}
 function autoStart(ss){
   const st=ss.st;
+  AUTO=autoArm(ss);
+  // auto-start stages run in order: when one is finished, the next one becomes active (navigation is not touched)
+  {const overA=ss.elapsed!=null&&ss.n&&ss.elapsed>ss.p[ss.n].t+60;
+   if(st.auto&&st.start&&(ss.done||overA)){const nx=sortedStages().find(s=>s!==st&&s.auto&&!s.start&&now()<(s.win?s.win[1]:9e15)&&stKey(s)>=stKey(st));
+     if(nx){S.active=nx.id;save();toast('Επόμενη: '+nx.name);if(!$('v-stage').hidden)renderEditor();return;}}}
   // switch to a stage that is about to start when the current one is finished or not running
   const cand=S.stages.filter(s=>s!==st&&s.start&&s.start-now()<=120000&&s.start-now()>-5000).sort((a,b)=>a.start-b.start)[0];
   const over=ss.elapsed!=null&&ss.n&&ss.elapsed>ss.p[ss.n].t+60;  // ideal finish passed by a minute
@@ -1188,6 +1237,11 @@ function render(force){
   setNext(ss,pm);
   if(view==='timing'&&(ss.elapsed==null||ss.elapsed<0||ss.done))renderMeas(ss,ss.next&&st.start?st.start+ss.next.t*1000-now():null);
   if(!ss.n){liaison('',st.name+': χωρίς '+(pm?'σημεία':'τμήματα'));return;}
+  if(ss.elapsed==null&&st.auto){const a=AUTO||{},hm=t=>hms(t).slice(0,5);
+    if(a.armed){setDev('alert','AUTO START · '+st.name,'ΕΤΟΙΜΟΣ',Math.round(Math.max(0,meters()))+'<small> m</small>','Ο χρόνος ξεκινά μόλις κινηθείς από τη γραμμή',
+      '1ο σημείο <b>'+ss.p[1].d+'</b> m στα <b>'+secTxt(ss.p[1].t)+'</b> s');autoBtns('go');$('dev').dataset.mode='route';return;}
+    liaison('',st.name+' · auto start <b>'+hm(a.open)+'–'+hm(a.close)+'</b>'+(a.dist!=null?' · αφετηρία σε <b>'+Math.max(0,Math.round(a.dist))+'</b> m':'')+
+'');autoBtns('arm');return;}
   if(ss.elapsed==null){liaison('',st.name+': όρισε ώρα εκκίνησης');return;}
   if(ss.elapsed<0){
     const r=-ss.elapsed*1000;countdown(st.id+':start',r);
@@ -1236,10 +1290,11 @@ function parsePoints(text){
     .map(x=>({m:parseM(x[0]),s:parseTime(x[1]),c:x[2]!=null&&isFinite(num(x[2]))?num(x[2]):0})).filter(p=>isFinite(p.m)&&isFinite(p.s));
 }
 function sortPts(st){st.points.sort((a,b)=>(isFinite(a.m)?+a.m:1e12)-(isFinite(b.m)?+b.m:1e12));}
-function sortedStages(){return S.stages.slice().sort((a,b)=>(a.start||9e15)-(b.start||9e15));}
+const stKey=s=>s.start||(s.win&&s.win[0])||9e15;
+function sortedStages(){return S.stages.slice().sort((a,b)=>stKey(a)-stKey(b));}
 function stageRows(){
   return sortedStages().map(s=>{const stt=stageStatus(s);
-    return '<button class="srow'+(stt==='Ολοκληρώθηκε'?' done':'')+'" data-sid="'+s.id+'" aria-current="'+(s.id===act().id)+'"><span class="t num">'+(s.start?hms(s.start).slice(0,5):'—:—')+'</span><b>'+esc(s.name)+'</b><small>'+(s.mode==='points'?'Χρόνος/σημείο':'ΜΩΤ')+' · '+stt+'</small></button>';}).join('');
+    return '<button class="srow'+(stt==='Ολοκληρώθηκε'?' done':'')+'" data-sid="'+s.id+'" aria-current="'+(s.id===act().id)+'"><span class="t num">'+(s.start?hms(s.start).slice(0,5):s.win?'<span style="opacity:.6">'+hms(s.win[0]).slice(0,5)+'</span>':'—:—')+'</span><b>'+esc(s.name)+'</b><small>'+(s.mode==='points'?'Χρόνος/σημείο':'ΜΩΤ')+(s.auto&&!s.start?' · auto start '+hms(s.win[0]).slice(0,5)+'–'+hms(s.win[1]).slice(0,5):' · '+stt)+'</small></button>';}).join('');
 }
 function renderChips(){$('slCount').textContent='Ειδικές · '+S.stages.length;$('stageList').innerHTML=stageRows();
   const cur=$('stageList').querySelector('[aria-current="true"]');if(cur&&cur.scrollIntoViewIfNeeded)cur.scrollIntoViewIfNeeded(false);}
