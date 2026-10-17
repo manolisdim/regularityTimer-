@@ -863,7 +863,11 @@ let toastT;function toast(t){const el=$('toast');el.textContent=t;el.hidden=fals
 function correct(m){logEv('correct',m);L.corr+=m;toast(sgn(m)+Math.abs(m)+' m');}
 /* meters freeze / edit / zero — page-built dialog */
 let SH=null;
-function closeSheet(){SH=null;L.frozen=null;$('sheet').hidden=true;}
+function closeSheet(){SH=null;L.frozen=null;const ae=document.activeElement;if(ae&&ae.blur)ae.blur();$('sheet').hidden=true;}
+/* iPhone "Shake to Undo": in a moving car every bump asks "Undo/Redo Typing". When a field is left, re-set its value from
+   code — Safari then drops that field's typing history, so there is nothing left to undo or redo. */
+document.addEventListener('focusout',e=>{const el=e.target;if(!el||!(el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&/^(text|number|search|tel|)$/.test(el.type||''))))return;
+  setTimeout(()=>{if(document.activeElement===el)return;const v=el.value;el.value=v+' ';el.value=v;},0);},true);
 function openSheet(o){SH=o;$('shF2').hidden=o.value2==null;if(o.value2!=null){$('shLabel2').textContent=o.label2;$('shInput2').value=o.value2;}$('shLabel').textContent=o.label||'Σωστή απόσταση σε αυτό το σημείο (m)';$('shCheckRow').hidden=!o.check;if(o.check){$('shCheckTxt').textContent=o.check;$('shCheck').checked=false;}$('shList').hidden=!o.list;if(o.list)$('shList').innerHTML=o.list;$('shOk').hidden=!o.ok;$('shTitle').textContent=o.title;$('shText').textContent=o.text;$('shEdit').hidden=!o.edit;$('shOk').textContent=o.ok;
   $('shQuick').innerHTML='';(o.quick||[]).forEach(q=>{const b=document.createElement('button');b.className='btn';b.textContent=q.label;b.onclick=q.fn||(()=>{$('shInput').value=q.m;});$('shQuick').appendChild(b);});
   $('sheet').hidden=false;if(o.edit){$('shInput').value=o.value;setTimeout(()=>{$('shInput').focus();$('shInput').select();},30);}else $('shOk').focus();}
