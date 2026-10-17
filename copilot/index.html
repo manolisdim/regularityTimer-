@@ -969,7 +969,7 @@ function tickPoints(ss){
 }
 
 /* ---------- sound: Greek voice or beeps for the last 10 s ---------- */
-let AC=null,cd={key:'',sec:null},voiceEl=null;
+let AC=null,cd={key:'',sec:null,pend:[]},voiceEl=null;
 const WORDS=['μηδέν','ένα','δύο','τρία','τέσσερα','πέντε','έξι','εφτά','οχτώ','εννιά','δέκα'];
 function pickVoice(){try{voiceEl=speechSynthesis.getVoices().find(v=>/^el/i.test(v.lang))||null;}catch(e){}}
 try{speechSynthesis.onvoiceschanged=pickVoice;pickVoice();}catch(e){}
@@ -977,13 +977,20 @@ function say(txt){try{speechSynthesis.cancel();const u=new SpeechSynthesisUttera
 function beep(f,d){if(!AC)return;try{const o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(.12,AC.currentTime);g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}}
 document.addEventListener('pointerdown',()=>{try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();}catch(e){}
   try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}catch(e){}},{once:true});
+/* countdown sounds, scheduled ahead on the audio clock so they land on the exact second (not on the 0.1 s screen tick).
+   When the countdown enters second k, the sound for the next boundary (k−1 … 0) is booked at its exact moment. */
+function beepAt(f,d,ms){if(!AC)return null;try{const t0=AC.currentTime+Math.max(0,ms)/1000,o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.value=f;
+  g.gain.setValueAtTime(.0001,AC.currentTime);g.gain.setValueAtTime(.12,t0);g.gain.exponentialRampToValueAtTime(.0001,t0+d);o.connect(g).connect(AC.destination);o.start(t0);o.stop(t0+d+.02);return o;}catch(e){return null;}}
 function countdown(key,rMs){
   if(S.snd==='off')return;
-  if(cd.key!==key){cd={key,sec:null};}
-  const lead=S.snd==='voice'?200:0,sec=rMs-lead>0?Math.ceil((rMs-lead)/1000):0;
-  if(sec===cd.sec)return;const prev=cd.sec;cd.sec=sec;if(prev===null||sec>10)return;
-  if(sec>=1){if(S.snd==='voice')say(WORDS[sec]);else beep(sec<=3?880:700,sec<=3?.12:.08);}
-  else if(rMs>-500)beep(1320,.35);
+  if(cd.key!==key){(cd.pend||[]).forEach(x=>{try{x.stop?x.stop():clearTimeout(x);}catch(e){}});cd={key,sec:null,pend:[]};}
+  const sec=rMs>0?Math.ceil(rMs/1000):0;
+  if(sec===cd.sec)return;const prev=cd.sec;cd.sec=sec;if(prev===null||sec>11||sec<1)return;
+  const k=sec-1,ms=rMs-k*1000;   // next boundary k, ms from now
+  if(window.__cdlog)window.__cdlog.push({k,at:now()+ms});
+  if(k===0){const o=beepAt(1320,.35,ms);if(o)cd.pend.push(o);return;}
+  if(S.snd==='voice'){cd.pend.push(setTimeout(()=>say(WORDS[k]),Math.max(0,ms-250)));}   // speech starts ~0.25 s late
+  else{const o=beepAt(k<=3?880:700,k<=3?.12:.08,ms);if(o)cd.pend.push(o);}
 }
 
 /* ---------- roadbook ---------- */
@@ -1506,7 +1513,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v20 · 17/10 12:32 · τουλίπα μέτρησης στοιχίζει και το βιβλίο';
+window.APP_VER='v21 · 17/10 13:10 · ακριβή μπιπ αντίστροφης';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
