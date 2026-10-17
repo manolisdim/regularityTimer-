@@ -648,6 +648,7 @@ table input{min-width:84px}
             <select id="passMode"><option value="auto">Αυτόματα από την απόσταση</option><option value="manual">Με το κουμπί NEXT (εμφανίζεται στην κύρια οθόνη)</option></select></div>
           <p class="note">Με «Αυτόματα» το πέρασμα καταγράφεται τη στιγμή που η απόσταση φτάνει το σημείο, και το NEXT μένει για χειροκίνητο πέρασμα. Με «NEXT» το καταγράφεις εσύ, και αν δεν το πατήσεις, 10 s μετά την ιδανική ώρα περνάει μόνο του στο επόμενο.</p>
           <div class="field" style="max-width:220px"><label for="tol">Όριο «στο χρόνο» (s)</label><input id="tol" class="num" inputmode="decimal"></div>
+          <div class="field" style="max-width:340px"><label>Στόχος σε όλα τα σημεία (s) · αρνητικό = πέρνα νωρίτερα</label><div class="btnrow"><button class="btn" data-aim="-0.1">−0,1</button><span class="num" id="aimV" style="min-width:64px;text-align:center;font-size:22px;font-weight:700">0,0</span><button class="btn" data-aim="0.1">+0,1</button><button class="btn" data-aim="0">0</button></div></div>
           <label class="check"><input type="checkbox" id="dayMode"> Λειτουργία ημέρας (φωτεινή)</label>
         </div>
         <div class="card stack">
@@ -845,7 +846,7 @@ const Sim={dist:0,t0:performance.now(),
 function pts(st){
   const out=[{d:0,t:0,v:0}];if(!st)return out;
   if(st.mode==='points'){
-    for(const p of st.points||[]){const d=+p.m,t=(+p.s)+(+p.c||0);const l=out[out.length-1];
+    for(const p of st.points||[]){const d=+p.m,t=(+p.s)+(+p.c||0)+(+S.aim||0);const l=out[out.length-1];
       if(isFinite(d)&&isFinite(t)&&d>l.d&&t>l.t)out.push({d,t,v:(d-l.d)/(t-l.t)*3.6});}
   }else{let t=0,d=0;for(const g of st.segs||[]){if(!(g.to>d&&g.v>0))break;t+=(g.to-d)/(g.v/3.6);d=g.to;out.push({d,t,v:g.v});}}
   return out;
@@ -1241,7 +1242,7 @@ function render(force){
   navRoll();tickPoints(ss);ss=stageState();
   const st=ss.st,pm=st.mode==='points';
   $('stageName').textContent=(st.name||'Ειδική').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
-  $('stageInfo').textContent=!ss.n?'Χωρίς '+(pm?'σημεία':'τμήματα'):ss.done?'Τέλος ειδικής':pm?'Σημείο '+ss.k+' από '+ss.n:'Τμήμα '+ss.k+' από '+ss.n+' · ΜΩΤ '+ss.next.v;
+  $('stageInfo').textContent=(S.aim?'Στόχος '+(S.aim>0?'+':MINUS)+fmt(Math.abs(S.aim),1)+' s · ':'')+(!ss.n?'Χωρίς '+(pm?'σημεία':'τμήματα'):ss.done?'Τέλος ειδικής':pm?'Σημείο '+ss.k+' από '+ss.n:'Τμήμα '+ss.k+' από '+ss.n+' · ΜΩΤ '+ss.next.v);
   const view=S.navView==='auto'?(pm?'timing':'speed'):S.navView;
   autoStart(ss);
   $('btnNext').hidden=!pm||S.passMode!=='manual';$('mRow').hidden=view!=='timing';
@@ -1453,6 +1454,8 @@ $('focus').value=S.focus||'nav';$('focus').onchange=e=>{S.focus=e.target.value;s
 $('autoCal').checked=S.autoCal!==false;$('autoCal').onchange=e=>{S.autoCal=e.target.checked;save();};
 $('autoZero').checked=!!S.autoZero;$('autoZero').onchange=e=>{S.autoZero=e.target.checked;save();};
 $('passMode').value=S.passMode;$('passMode').onchange=e=>{S.passMode=e.target.value;save();};
+const showAim=()=>{const a=+S.aim||0;$('aimV').textContent=(a>0?'+':a<0?MINUS:'')+fmt(Math.abs(a),1);};showAim();
+document.querySelectorAll('[data-aim]').forEach(b=>b.onclick=()=>{const v=+b.dataset.aim;S.aim=v===0?0:Math.round(((+S.aim||0)+v)*10)/10;save();showAim();renderEditor();toast('Στόχος σημείων '+$('aimV').textContent+' s');});
 $('tol').value=String(S.tol).replace('.',',');$('tol').onchange=e=>{const v=num(e.target.value);if(v>0&&v<5)S.tol=v;save();};
 function applySource(){$('source').value=S.source;$('gpsOpts').hidden=S.source!=='gps';if(S.source==='gps')startGps();else stopGps();L.speed=0;}
 $('source').onchange=e=>{if(e.target.value==='udp'){toast('Η σύνδεση με το box έρχεται στο APK');e.target.value=S.source;return;}S.source=e.target.value;save();applySource();zero();};
@@ -1513,7 +1516,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v21 · 17/10 13:10 · ακριβή μπιπ αντίστροφης';
+window.APP_VER='v22 · 17/10 20:45 · στόχος σημείων (νωρίτερα/αργότερα)';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
