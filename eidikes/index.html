@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<title>Ειδικές 24h 2026</title>
+<style>
+:root{--bg:#0f1115;--card:#1a1d24;--line:#2a2e38;--tx:#eef0f4;--mut:#9aa1ae;--acc:#ffb020;--go:#2e7dff;--done:#5b616d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.35 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;padding:0 12px calc(24px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;background:var(--bg);padding:calc(12px + env(safe-area-inset-top)) 0 10px;z-index:2;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:19px}
+.sub{color:var(--mut);font-size:13px;margin-top:2px}
+.opts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.opts label{font-size:13px;color:var(--mut);display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 10px}
+h2{font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin:18px 2px 8px}
+.st{display:flex;gap:8px;margin-bottom:8px}
+.go{flex:1;display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;min-height:64px}
+.go:active{transform:scale(.985)}
+.num{font-weight:800;font-size:20px;min-width:50px;text-align:center;background:var(--go);color:#fff;border-radius:10px;padding:8px 0}
+.info{flex:1;min-width:0}
+.name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{color:var(--mut);font-size:13px;margin-top:2px}
+.fin{width:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;color:var(--mut);background:var(--card);border:1px solid var(--line);border-radius:14px;font-size:12px}
+.fin b{font-size:18px;color:var(--tx)}
+.st.next .go{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc) inset}
+.st.next .num{background:var(--acc);color:#111}
+.st.past .num{background:var(--done)}
+.st.past .go,.st.past .fin{opacity:.6}
+.tag{display:inline-block;font-size:11px;font-weight:700;background:var(--acc);color:#111;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+footer{color:var(--mut);font-size:12px;margin-top:20px}
+</style>
+</head>
+<body>
+<header>
+  <h1>29ο Ράλλυ 24 Ώρες · Ειδικές</h1>
+  <div class="sub">Πάτα μια ειδική → πλοήγηση Google Maps στην αρχή της. 🏁 = τέρμα.</div>
+  <div class="opts"><label><input type="checkbox" id="hidePast"> Κρύψε όσες πέρασαν</label></div>
+</header>
+<main id="list"></main>
+<footer>Συντεταγμένες &amp; ώρες: AnubeSport tracking (rally9183). Ώρα εκκίνησης για το 1ο αυτοκίνητο.</footer>
+<script>
+// name, leg, ut_ini, ut_fin, lat_ini, lon_ini, lat_fin, lon_fin, label
+const S=[
+["T01",1,1792221960,1792223019,38.448127,23.889125,38.512207,23.973055,"Γυμνό → Θαρρούνια"],
+["T02",1,1792223160,1792223616,38.509522,23.97853,38.475805,23.962468,"Θαρρούνια → Παρθένι"],
+["T03",1,1792226040,1792226660,38.333605,24.168008,38.300285,24.184683,"Αργυρό"],
+["T04",1,1792227720,1792228001,38.241942,24.246312,38.232327,24.211233,"Τσακαίοι (Ν. Στύρα)"],
+["T05",1,1792228080,1792228601,38.231528,24.210107,38.214302,24.235287,"Τσακαίοι → Πολυπόταμος"],
+["T06",1,1792231020,1792232321,38.074243,24.380192,38.128377,24.491078,"Παραδείσι → Αγαθό"],
+["T07",2,1792238400,1792239615,38.139512,24.479237,38.074783,24.379732,"Καλλιανός → Παραδείσι"],
+["T08",2,1792241220,1792241512,38.198988,24.201897,0,0,"Δήλησο (Ν. Στύρα)"],
+["T09",2,1792242480,1792243207,38.28639,24.140565,38.334105,24.168695,"Αργυρό → Λέπουρα"],
+["T10",2,1792246080,1792246367,38.631145,24.124302,0,0,"Παραλία Κύμης"],
+["T11",2,1792247760,1792248245,38.542508,24.045277,38.545608,23.988902,"Μανίκια"],
+["T12",2,1792248600,1792248893,38.535152,23.972677,38.538722,23.936588,"Μανίκια → Σέτα"],
+["T13",2,1792249260,1792250122,38.530433,23.922808,38.449797,23.890102,"Σέτα → Γυμνό"],
+["T14",2,1792251120,1792251514,38.428797,23.80135,38.47122,23.804125,"Ερέτρια – Θεολόγος"],
+["T15",2,1792252320,1792252548,38.51423,23.776418,38.519537,23.74034,"Πούρνος → Πισσώνας"],
+["T16",3,1792272300,1792272717,38.594623,23.618485,38.636377,23.61438,"Ψαχνά → Σταυρός"],
+["T17",3,1792275180,1792275863,38.736922,23.484852,38.74158,23.437503,"Δαφνούσα → Καλύβια"],
+["T18",3,1792277460,1792277736,38.857862,23.41209,38.877217,23.43485,"Παραλία Αγ. Άννας"],
+["T19",3,1792278180,1792278657,38.900405,23.424472,38.931312,23.408968,"Αχλάδι → Κοτσικιά"],
+["T20",3,1792278780,1792279187,38.931103,23.40895,38.921282,23.372317,"Κοτσικιά"],
+["T21",3,1792280520,1792281039,38.896887,23.274703,38.945035,23.271458,"Κοκκινομηλιά → Μηλιές"],
+["T22",3,1792281180,1792281761,38.94514,23.271288,38.929377,23.207128,"Μηλιές → Κ. Μονοκαρυά"],
+["T23",4,1792291320,1792292231,38.821348,23.23402,38.848987,23.289462,"Ροβιές → Δρυμώνας"],
+["T24",4,1792292340,1792292607,38.850313,23.287817,38.896887,23.2747,"Κερασιά → Κοκκινομηλιά"],
+["T25",4,1792294320,1792294596,38.857862,23.41209,38.877217,23.43485,"Παραλία Αγ. Άννας (= T18)"],
+["T26",4,1792295040,1792295517,38.900405,23.424472,38.931312,23.408968,"Αχλάδι → Κοτσικιά (= T19)"],
+["T27",4,1792295640,1792296047,38.931103,23.40895,38.921282,23.372317,"Κοτσικιά (= T20)"],
+["T28",4,1792298400,1792299157,38.741638,23.437452,38.741047,23.49023,"Καλύβια → Δαφνούσα"],
+["T29",4,1792301580,1792301899,38.630297,23.61547,38.602238,23.597575,"Σταυρός"]];
+const LEGS={1:"Σκέλος 1 · Σάβ · Χαλκίδα → Καλλιάνοι",2:"Σκέλος 2 · Σάβ · Καλλιάνοι → Χαλκίδα",3:"Σκέλος 3 · Κυρ νύχτα · Χαλκίδα → Αιδηψός",4:"Σκέλος 4 · Κυρ · Αιδηψός → Χαλκίδα"};
+const nav=(la,lo)=>`https://www.google.com/maps/dir/?api=1&destination=${la},${lo}&travelmode=driving`;
+const fmt=new Intl.DateTimeFormat('el-GR',{timeZone:'Europe/Athens',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+const dur=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+let hidePast=false;try{hidePast=localStorage.getItem('eidikes-hidePast')==='1'}catch(e){}
+const cb=document.getElementById('hidePast');cb.checked=hidePast;
+cb.onchange=()=>{hidePast=cb.checked;try{localStorage.setItem('eidikes-hidePast',hidePast?'1':'0')}catch(e){};render()};
+function render(){
+  const now=Date.now()/1000;
+  const nextIdx=S.findIndex(s=>s[3]>now);
+  let h='',leg=0;
+  S.forEach((s,i)=>{
+    const [n,l,ui,uf,la,lo,lf,lof,lab]=s;
+    const past=uf<=now, next=i===nextIdx;
+    if(past&&hidePast)return;
+    if(l!==leg){leg=l;h+=`<h2>${LEGS[l]}</h2>`}
+    const fin=lf?`<a class="fin" href="${nav(lf,lof)}" target="_blank" rel="noopener"><b>🏁</b>τέρμα</a>`:'';
+    h+=`<div class="st${past?' past':''}${next?' next':''}" id="${n}">
+      <a class="go" href="${nav(la,lo)}" target="_blank" rel="noopener">
+        <span class="num">${n.slice(1)}</span>
+        <span class="info"><span class="name">${n} · ${lab}${next?'<span class="tag">ΕΠΟΜΕΝΗ</span>':''}</span>
+        <span class="meta">${fmt.format(ui*1000)} · ${dur(uf-ui)} · ${la.toFixed(5)}, ${lo.toFixed(5)}</span></span>
+      </a>${fin}</div>`;
+  });
+  document.getElementById('list').innerHTML=h;
+}
+render();
+const first=S.find(s=>s[3]>Date.now()/1000);
+if(first&&!hidePast)setTimeout(()=>document.getElementById(first[0])?.scrollIntoView({block:'center'}),50);
+setInterval(render,60000);
+</script>
+</body>
+</html>
