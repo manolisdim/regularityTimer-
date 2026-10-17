@@ -61,6 +61,14 @@ main{padding:12px 12px 32px;max-width:720px;margin:0 auto}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .chip{flex:none;height:36px;min-width:52px;padding:0 12px;border-radius:99px;background:var(--panel);color:var(--fg);border:1px solid var(--line);font:600 15px var(--display);letter-spacing:.05em;text-transform:uppercase}
 .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip.jkbtn{border-color:var(--gold);color:var(--gold)}
+.chip.jkbtn.on{background:var(--gold);border-color:var(--gold);color:#15181d}
+.jnote{margin:-4px 2px 12px;font-size:12px;line-height:1.4;color:var(--gold)}
+.jline{margin-top:6px;font-size:12px;line-height:1.35;color:var(--muted)}
+.jline b.up{color:var(--good)}
+.jline b.down{color:var(--accent)}
+td.jk .v{text-decoration:line-through;color:var(--muted)}
+td.jk .s{color:var(--gold)}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
 .card .hd{display:flex;align-items:center;gap:8px}
@@ -240,9 +248,37 @@ function build(P, S, T, C, R){
              rank: pid => totals[pid] == null ? null : 1 + all.filter(v => v < totals[pid] - 1e-9).length,
              field: all.length };
   });
+  // Joker: η μία χειρότερη μέτρηση (σε βαθμούς ποινής) κάθε πληρώματος σε όλο τον αγώνα
+  const joker = {};
+  stages.forEach(st => Object.keys(st.rows).forEach(pid => {
+    const r = st.rows[pid];
+    r.sc.forEach((v, i) => {
+      if (i === 0 || v == null) return;
+      if (!joker[pid] || v > joker[pid].sc) joker[pid] = { stage: st.name, i, sc: v, se: r.se[i] };
+    });
+  }));
+  stages.forEach(st => {
+    st.totalsJ = {}; st.secTotJ = {};
+    Object.keys(st.totals).forEach(pid => {
+      const j = joker[pid];
+      st.totalsJ[pid] = st.totals[pid] - (j && j.stage === st.name ? j.sc : 0);
+    });
+    Object.keys(st.secTot).forEach(pid => {
+      const j = joker[pid];
+      st.secTotJ[pid] = st.secTot[pid] - (j && j.stage === st.name && j.se != null ? Math.abs(j.se) : 0);
+    });
+    const allJ = Object.values(st.totalsJ);
+    st.rankJ = pid => st.totalsJ[pid] == null ? null : 1 + allJ.filter(v => v < st.totalsJ[pid] - 1e-9).length;
+  });
+  // Γενική κατάταξη με joker για όλα τα πληρώματα
+  const jcls = {};
+  const ranked = Object.values(cls).filter(k => !k.dnq && n1(k.penalizacion) != null)
+    .map(k => ({ pid: k.participant, total: n1(k.penalizacion) - (joker[k.participant] ? joker[k.participant].sc : 0) }))
+    .sort((a, b) => a.total - b.total);
+  ranked.forEach(r => { jcls[r.pid] = { total: r.total, puesto: 1 + ranked.filter(x => x.total < r.total - 1e-9).length }; });
   const sub = d(R).subrally || d(R);
   const title = (sub && (sub.name || sub.nombre || sub.title)) || "";
-  return { byDorsal, cls, stages, title, live: stages.some(s => !s.closed), total: Object.keys(cls).length };
+  return { byDorsal, cls, stages, title, joker, jcls, live: stages.some(s => !s.closed), total: Object.keys(cls).length };
 }
 
 let data = null, dataFor = null, timer = null, busy = false, lastSig = null, lastOk = null, lastFail = false;
@@ -331,12 +367,19 @@ function render(){
   crews.forEach(c => {
     if (!c.p){ h += `<div class="card missing"><div class="hd"><span class="no">${esc(c.d)}</span><span class="nm">Δεν βρέθηκε</span></div></div>`; return; }
     const k = data.cls[c.p.participant];
-    const pos = k ? (k.dnq ? esc(k.dnq) : k.puesto + "ος") : "–";
-    const secs = data.stages.map(st => st.secTot[c.p.participant]).filter(v => v != null);
+    const jk = jokerOn ? data.jcls[c.p.participant] : null, jj = data.joker[c.p.participant];
+    let pos = k ? (k.dnq ? esc(k.dnq) : k.puesto + "ος") : "–";
+    let jline = "";
+    if (jk){
+      const diff = k.puesto - jk.puesto;
+      pos = jk.puesto + "ος";
+      jline = `<div class="jline">Επίσημη ${k.puesto}η${diff ? ` · <b class="${diff > 0 ? "up" : "down"}">${diff > 0 ? "▲" : "▼"}${Math.abs(diff)}</b>` : " · ίδια"}${jj ? `<br>Joker: ${esc(jj.stage)} Σημ. ${jj.i} (${jj.se != null ? signed(jj.se) : fmt(jj.sc)})` : ""}</div>`;
+    }
+    const secs = data.stages.map(st => (jokerOn ? st.secTotJ : st.secTot)[c.p.participant]).filter(v => v != null);
     const secSum = secs.length ? secs.reduce((a, b) => a + b, 0) : null;
     h += `<div class="card"><div class="hd"><span class="no">${esc(c.d)}</span><span class="nm">${esc(surname(c.p.piloto))}${c.p.copiloto ? "<br>" + esc(surname(c.p.copiloto)) : ""}</span></div>`
       + `<div class="car">${esc(c.p.vehiculo_modelo || "")}${c.p.vehiculo_anho ? " · " + esc(c.p.vehiculo_anho) : ""}</div>`
-      + `<div class="ov"><span class="pos">${pos}</span><small>${secSum != null ? secSum.toFixed(1) + "″ συνολικά" : ""}${k && Number(k.num_ceros) ? " · " + esc(k.num_ceros) + " μηδ." : ""}</small></div></div>`;
+      + `<div class="ov"><span class="pos">${pos}</span><small>${secSum != null ? secSum.toFixed(1) + "″ συνολικά" : ""}${k && Number(k.num_ceros) ? " · " + esc(k.num_ceros) + " μηδ." : ""}</small></div>${jline}</div>`;
   });
   h += `</div>`;
 
@@ -349,7 +392,8 @@ function render(){
   if (sel !== "all" && sel !== "auto" && !data.stages.some(s => s.name === sel)) sel = "auto";
   const visible = sel === "all" ? data.stages : sel === "auto" ? (cur ? [cur] : []) : data.stages.filter(s => s.name === sel);
   const chip = (val, label) => `<button type="button" class="chip ${sel === val ? "on" : ""}" data-stage="${esc(val)}" aria-pressed="${sel === val}">${label}</button>`;
-  const chips = `<div class="chips" role="group" aria-label="Επιλογή stage">${chip("auto", "Τρέχουσα" + (cur ? " · " + esc(cur.name) : ""))}${chip("all", "Όλες")}${data.stages.map(s => chip(s.name, esc(s.name))).join("")}</div>`;
+  const chips = `<div class="chips" role="group" aria-label="Επιλογή stage">${chip("auto", "Τρέχουσα" + (cur ? " · " + esc(cur.name) : ""))}${chip("all", "Όλες")}${data.stages.map(s => chip(s.name, esc(s.name))).join("")}<button type="button" class="chip jkbtn ${jokerOn ? "on" : ""}" data-joker aria-pressed="${jokerOn}">🃏 Joker</button></div>`
+    + (jokerOn ? `<div class="jnote">Joker ενεργό: σε κάθε πλήρωμα αφαιρείται η μία μεγαλύτερη ποινή του αγώνα και οι θέσεις ξαναβγαίνουν για όλους. Δεν είναι η επίσημη κατάταξη.</div>` : "");
 
   data.stages.forEach((st, si) => {
     if (!visible.includes(st)) return;
@@ -358,20 +402,22 @@ function render(){
     h += `<div class="tbl"><table><thead><tr><th></th>${shown.map(c => `<th><span class="no">${esc(c.d)}</span></th>`).join("")}</tr></thead><tbody>`;
     for (let i = 1; i <= st.cols; i++){
       const vals = shown.map(c => { const r = st.rows[c.p.participant]; return r ? r.se[i] : null; });
-      const nums = vals.filter(v => v != null).map(Math.abs);
+      const isJ = shown.map(c => { const j = data.joker[c.p.participant]; return jokerOn && !!j && j.stage === st.name && j.i === i; });
+      const nums = vals.filter((v, j) => v != null && !isJ[j]).map(Math.abs);
       const best = nums.length > 1 ? Math.min(...nums) : null;
       const tr = trend(vals, shown.map(c => c.d));
       if (tr) alerts.push({ key: st.name + "/" + i, stage: st.name, point: i, live: !st.closed, order: si * 100 + i, ...tr });
       h += `<tr><th class="${tr ? "flag" : ""}">${tr ? "⚑ " : ""}Σημ. ${i}</th>` + shown.map((c, j) => {
         const v = vals[j];
+        if (isJ[j]) return `<td class="jk"><span class="v">${v == null ? fmt(null) : signed(v)}</span><span class="s">🃏 joker</span></td>`;
         return `<td class="${v != null && Math.abs(v) === best ? "best" : ""}"><span class="v">${v == null ? fmt(null) : signed(v)}</span></td>`;
       }).join("") + `</tr>`;
     }
-    const tots = shown.map(c => st.secTot[c.p.participant] ?? null);
+    const tots = shown.map(c => (jokerOn ? st.secTotJ : st.secTot)[c.p.participant] ?? null);
     const tn = tots.filter(v => v != null);
     const bestT = tn.length > 1 ? Math.min(...tn) : null;
     h += `<tr class="total"><th>Σύνολο</th>` + tots.map(t => `<td class="${t != null && t === bestT ? "best" : ""}"><span class="v">${t == null ? fmt(null) : t.toFixed(1) + "″"}</span></td>`).join("") + `</tr>`;
-    h += `<tr class="rank"><th>Θέση</th>` + shown.map(c => { const rk = st.rank(c.p.participant); return `<td>${rk == null ? '<span class="dash">–</span>' : rk + "ος"}</td>`; }).join("") + `</tr>`;
+    h += `<tr class="rank"><th>Θέση</th>` + shown.map(c => { const rk = jokerOn ? st.rankJ(c.p.participant) : st.rank(c.p.participant); return `<td>${rk == null ? '<span class="dash">–</span>' : rk + "ος"}</td>`; }).join("") + `</tr>`;
     h += `</tbody></table></div>`;
   });
 
@@ -392,7 +438,9 @@ function render(){
 
 let seenAlerts = null;
 let stageSel = "auto";
+let jokerOn = store.get("rcJoker", "0") === "1";
 out.addEventListener("click", (e) => {
+  if (e.target.closest("[data-joker]")){ jokerOn = !jokerOn; store.set("rcJoker", jokerOn ? "1" : "0"); render(); return; }
   const b = e.target.closest("[data-stage]");
   if (!b) return;
   stageSel = b.dataset.stage;
