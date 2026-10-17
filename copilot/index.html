@@ -949,9 +949,11 @@ function tickPoints(ss){
     // so the meters are set to the point's distance (e.g. 1270 → 1300). Points without a tulip are left alone.
     if(st.idx<n){const q=p[st.idx+1],key=st.id+':'+st.start+':'+st.idx;
       if(t>=st.start+q.t*1000&&snapKey!==key){snapKey=key;
-        let onTulip=false;measureMap(st,BOOK[stRb(st).sec]).forEach(v=>{if(v.i===st.idx+1)onTulip=true;});
+        let onTulip=false,tRow=null;const sSec=BOOK[stRb(st).sec];measureMap(st,sSec).forEach((v,j)=>{if(v.i===st.idx+1){onTulip=true;tRow=sSec.rows[j];}});
         const diff=q.d-ss.x;
-        if(onTulip){L.corr+=diff;crossAt={k:key,t:st.start+q.t*1000};logEv('point_snap',st.idx+1,Math.round(diff)+' m');
+        if(onTulip){L.corr+=diff;crossAt={k:key,t:st.start+q.t*1000};
+          // the road book follows the book totals: we are on this tulip, so the next tulip comes from its total km
+          S.nav={sec:stRb(st).sec,off:Math.round((tRow.total-meters()/1000)*1000)/1000};save();tulipAnchor(tRow.total);logEv('point_snap',st.idx+1,Math.round(diff)+' m');
           toast('Τουλίπα μέτρησης '+(st.idx+1)+': μέτρα '+Math.round(ss.x)+' → '+q.d+' ('+sgn(diff)+Math.round(Math.abs(diff))+' m)');ss.x=meters();}}}
     while(st.idx<n&&ss.x>=p[st.idx+1].d){
       const d=p[st.idx+1].d,key=st.id+':'+st.start+':'+st.idx;
@@ -1504,7 +1506,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v19 · 17/10 12:15 · δευτερόλεπτα στα σημεία';
+window.APP_VER='v20 · 17/10 12:32 · τουλίπα μέτρησης στοιχίζει και το βιβλίο';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
