@@ -1,0 +1,55 @@
+name: iOS app (unsigned .ipa)
+
+# Builds the iPhone app from copilot/ + ios/ and attaches Copilot.ipa to the run.
+# Install the .ipa with AltStore / SideStore and a free Apple ID.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'copilot/**'
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Bundle the co-driver page
+        run: |
+          rm -rf ios/www
+          mkdir -p ios/www
+          cp -R copilot/. ios/www/
+          rm -f ios/www/sw.js
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build (no signing)
+        working-directory: ios
+        run: |
+          xcodebuild -project Copilot.xcodeproj -target Copilot \
+            -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package .ipa
+        working-directory: ios
+        run: |
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/Copilot.app Payload/
+          zip -qry Copilot.ipa Payload
+          ls -la Copilot.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Copilot-ipa
+          path: ios/Copilot.ipa
+          retention-days: 30

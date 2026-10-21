@@ -633,12 +633,12 @@ table input{min-width:84px}
         <div class="card stack">
           <span class="label">Πηγή απόστασης</span>
           <div class="field"><label for="source">Από πού μετράμε τα μέτρα</label>
-            <select id="source"><option value="sim">Προσομοίωση Rabbit Box</option><option value="gps">GPS της συσκευής (χωρίς αισθητήρες)</option><option value="udp">Rabbit Box (Wi-Fi, μόνο στην εφαρμογή Android)</option></select></div>
+            <select id="source"><option value="sim">Προσομοίωση Rabbit Box</option><option value="gps">GPS της συσκευής (χωρίς αισθητήρες)</option><option value="udp">Rabbit Box (Wi-Fi, μόνο στην εφαρμογή iPhone/Android)</option></select></div>
           <div class="btnrow" id="gpsOpts">
             <div class="field" style="flex:1;min-width:150px"><label for="gpsMin">GPS: ελάχιστη ταχύτητα (km/h)</label><input id="gpsMin" class="num" inputmode="decimal"></div>
             <div class="field" style="flex:1;min-width:150px"><label for="gpsAcc">GPS: μέγιστο σφάλμα θέσης (m)</label><input id="gpsAcc" class="num" inputmode="decimal"></div>
           </div>
-          <p class="note">Με GPS η απόσταση βγαίνει από την ταχύτητα που μετράει ο δέκτης και βαθμονομείται όπως οι αισθητήρες. Κάτω από την ελάχιστη ταχύτητα δεν προσθέτει μέτρα. Η σύνδεση με το πραγματικό box (192.168.4.1, θύρα 11912) έρχεται με την έκδοση APK. <b>Έκδοση εφαρμογής: v5 (νέα καρτέλα ειδικής, εξαγωγή δεδομένων)</b></p>
+          <p class="note">Με GPS η απόσταση βγαίνει από την ταχύτητα που μετράει ο δέκτης και βαθμονομείται όπως οι αισθητήρες. Κάτω από την ελάχιστη ταχύτητα δεν προσθέτει μέτρα. Η σύνδεση με το πραγματικό box (Wi-Fi RabbitBox, 192.168.4.1, θύρα 11912) δουλεύει μόνο μέσα στην εφαρμογή iPhone/Android, όχι από τον browser. <b>Έκδοση εφαρμογής: v5 (νέα καρτέλα ειδικής, εξαγωγή δεδομένων)</b></p>
         </div>
       </div>
       <div class="stack">
@@ -708,6 +708,8 @@ const DEF={f1:0.43404950,f2:0.43369565,fGps:1,gpsMin:2,gpsAcc:25,source:'sim',se
   tol:0.3,passMode:'auto',navView:'auto',layout:'auto',autoZero:true,autoCal:true,focus:'nav',showBulk:false,fGpsCal:null,rb:{sec:1,off:0},marks:[],calHist:[],stages:[],active:null};
 let S;
 const LITE=!!window.NO_SIM;  // phone/GitHub build: real GPS only, no simulator, no example stages
+// native wrapper (iOS app): exposes a message handler that opens the UDP link to the Rabbit Box
+const NATIVE=(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.rabbit)||null;
 function load(){
   let v2=null;try{v2=JSON.parse(localStorage.getItem('regapp.v2'));}catch(e){}
   if(v2&&Array.isArray(v2.stages)){S=Object.assign({},DEF,v2);if(S.stages.every(x=>x.demo))S.stages=[];}else{
@@ -717,6 +719,7 @@ function load(){
   if(v1){for(const k of ['f1','f2','fGps','gpsMin','gpsAcc','source','sensMode','day','tol','rb','marks','calHist'])if(v1[k]!=null)S[k]=v1[k];if(v1.clockOffset)S.offset=v1.clockOffset*1000;}
   }
   if(LITE){if(S.source==='sim')S.source='gps';S.stages=S.stages.filter(x=>!x.demo);}
+  if(S.source==='udp'&&!NATIVE)S.source=LITE?'gps':'sim';
 }
 function save(){try{localStorage.setItem('regapp.v2',JSON.stringify(S));}catch(e){}}
 load();
@@ -836,6 +839,12 @@ function onLine(line){
   else if(msg.name==='lap')freezeMeters();
   else if(msg.name==='ckm')mark();
 }
+// native → page: raw UDP text from the box (one or more messages ending in |), and link state
+window.rabbitRx=txt=>{if(S.source!=='udp')return;for(const m of String(txt).split('|')){if(!m.trim())continue;
+  // the box sends cumulative pulse counts: after a gap (just connected, box restarted) shift the zero so the meters don't jump
+  const msg=parseLine(m);if(msg&&isFinite(msg.a)&&isFinite(msg.b)&&performance.now()-L.lastMsg>3000){L.a0+=msg.a-L.a;L.b0+=msg.b-L.b;L.a=msg.a;L.b=msg.b;L.hist=[];}
+  onLine(m+'|');}};
+window.rabbitState=st=>{if(st==='denied')toast('Δεν δόθηκε άδεια «Τοπικό δίκτυο» · Ρυθμίσεις → Απόρρητο → Τοπικό δίκτυο');else if(st==='error')toast('Σφάλμα σύνδεσης με το box');};
 const Sim={dist:0,t0:performance.now(),
   start(){setInterval(()=>this.tick(),100);},
   tick(){
@@ -1465,6 +1474,7 @@ $('logExport').onclick=async()=>{logSave();
     else lines.push(['event',iso(r.t),r.t,'','','','','','','','',r.m,r.f,r.s,r.e,r.v,r.n].map(q).join(','));}
   const d=new Date(),z=n=>String(n).padStart(2,'0'),name='copilot-'+d.getFullYear()+z(d.getMonth()+1)+z(d.getDate())+'-'+z(d.getHours())+z(d.getMinutes())+'.csv';
   const file=new File([lines.join('\n')],name,{type:'text/csv'});
+  if(NATIVE){try{NATIVE.postMessage({cmd:'share',name,text:lines.join('\n')});return;}catch(e){}}
   try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});return;}}catch(e){if(e.name==='AbortError')return;}
   const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);};
 $('logClear').onclick=()=>{if(!confirm('Διαγραφή όλης της καταγραφής;'))return;LOG=[];logDirty=1;logSave();logInfo();toast('Η καταγραφή διαγράφηκε');};
@@ -1474,8 +1484,9 @@ $('autoCal').checked=S.autoCal!==false;$('autoCal').onchange=e=>{S.autoCal=e.tar
 $('autoZero').checked=!!S.autoZero;$('autoZero').onchange=e=>{S.autoZero=e.target.checked;save();};
 $('passMode').value=S.passMode;$('passMode').onchange=e=>{S.passMode=e.target.value;save();};
 $('tol').value=String(S.tol).replace('.',',');$('tol').onchange=e=>{const v=num(e.target.value);if(v>0&&v<5)S.tol=v;save();};
-function applySource(){$('source').value=S.source;$('gpsOpts').hidden=S.source!=='gps';if(S.source==='gps')startGps();else stopGps();L.speed=0;}
-$('source').onchange=e=>{if(e.target.value==='udp'){toast('Η σύνδεση με το box έρχεται στο APK');e.target.value=S.source;return;}S.source=e.target.value;save();applySource();zero();};
+function applySource(){$('source').value=S.source;$('gpsOpts').hidden=S.source!=='gps';if(S.source==='gps')startGps();else stopGps();L.speed=0;
+  if(NATIVE)try{NATIVE.postMessage({cmd:S.source==='udp'?'start':'stop'});}catch(e){}}
+$('source').onchange=e=>{if(e.target.value==='udp'&&!NATIVE){toast('Η σύνδεση με το box δουλεύει μόνο στην εφαρμογή iPhone/Android');e.target.value=S.source;return;}S.source=e.target.value;save();applySource();zero();};
 $('gpsMin').value=S.gpsMin;$('gpsAcc').value=S.gpsAcc;
 $('gpsMin').onchange=e=>{const v=num(e.target.value);if(v>=0&&v<20)S.gpsMin=v;save();$('gpsMin').value=S.gpsMin;};
 $('gpsAcc').onchange=e=>{const v=num(e.target.value);if(v>=5&&v<200)S.gpsAcc=v;save();$('gpsAcc').value=S.gpsAcc;};
@@ -1533,8 +1544,8 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v28 · 18/10 01:10 · πάγωμα στοιχίζει και το βιβλίο';
-if('serviceWorker' in navigator){
+window.APP_VER='v29 · 21/10 · εφαρμογή iPhone: σύνδεση με Rabbit Box';
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update().catch(()=>{});});
