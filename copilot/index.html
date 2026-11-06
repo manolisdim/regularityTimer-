@@ -1044,12 +1044,17 @@ function measureMap(st,sec){
 }
 const TUL_HOLD=0.06,TUL_NEAR=0.15;   // switch ~60 m after a tulip; show the next one too when it is closer than 150 m
 // ◀ / ▶ under the tulips: the road book moves one tulip back or forward (only the book; the stage meters stay)
-let tulSkip=null;
-function tulStep(d){const sec=rbSec();if(!sec)return;const rows=sec.rows,x=bookKm(),i0=rows.findIndex(r=>r.total>x+0.0005);
+let tulSkip=null,tulHist=[];
+function tulStep(d){const sec=rbSec();if(!sec)return;
+  // the opposite button undoes the last press exactly (▶ then ◀ = back to where it was, same meters to the tulip)
+  const top=tulHist[tulHist.length-1];
+  if(top&&top.d===-d&&top.sec===nav().sec){tulHist.pop();S.nav={sec:top.sec,off:top.off};tulSkip=top.skip;save();logEv('tul_undo',d);
+    const r2=rbSec().rows,x2=bookKm(),j2=r2.findIndex(r=>r.total>x2+0.0005);toast('Ακύρωση · επόμενη τουλίπα: '+(j2>=0?r2[j2].n:'—'));render(true);return;}
+  const rows=sec.rows,x=bookKm(),i0=rows.findIndex(r=>r.total>x+0.0005);
   const t=d>0?i0:(i0<0?rows.length:i0)-2;
   if(d>0&&i0<0){toast('Τέλος τμήματος βιβλίου');return;}
   if(t<0){toast('Είσαι στην αρχή του τμήματος');return;}
-  tulSkip=nav().sec+':'+t;const n=nav();n.off=Math.round((rows[t].total-meters()/1000)*1000)/1000;save();logEv('tul_step',d,rows[t].n);
+  tulHist.push({d,sec:nav().sec,off:nav().off,skip:tulSkip});if(tulHist.length>20)tulHist.shift();tulSkip=nav().sec+':'+t;const n=nav();n.off=Math.round((rows[t].total-meters()/1000)*1000)/1000;save();logEv('tul_step',d,rows[t].n);
   toast('Επόμενη τουλίπα: '+(rows[t+1]?rows[t+1].n:'—'));render(true);}
 function stackList(st,view){
   const sec=rbSec();if(!sec)return[];
@@ -1552,7 +1557,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v31 · 06/11 · πάγωμα με ±1 / ±10';
+window.APP_VER='v32 · 06/11 · ◀ ▶ τουλίπες: το αντίθετο κουμπί ακυρώνει';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
