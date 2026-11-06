@@ -1014,7 +1014,7 @@ const stRb=st=>{if(!st.rb)st.rb={sec:(S.rb&&S.rb.sec)||1,off:0};return st.rb;};
 /* navigation: where we are in the road book. It follows the meters on its own — through stage finishes, liaisons
    and section resets — and is set to a stage's start tulip only when that stage starts. */
 const nav=()=>{if(!S.nav||!BOOK[S.nav.sec]){const st=act(),rb=st?stRb(st):{sec:0,off:0};S.nav={sec:BOOK[rb.sec]?rb.sec:0,off:+rb.off||0};}return S.nav;};
-const rbSec=()=>BOOK[nav().sec]||null;
+const rbSec=()=>{const st=act();if(st&&st.rb&&+st.rb.sec<0)return null;return BOOK[nav().sec]||null;};   // stage set to 'no road book': no tulips, km from zero
 const bookKm=()=>meters()/1000+(+nav().off||0);
 // passing the last tulip of a section (a reset to 0,00) carries on into the next section of the book
 function navRoll(){const n=nav(),sec=BOOK[n.sec],nx=BOOK[n.sec+1];if(!sec||!nx||nx.book!==sec.book)return;
@@ -1300,7 +1300,10 @@ function render(force){
       '<span class="devnow '+(alert?'':'d-'+lv.tone)+'">'+sgn(lv.d)+fmt(Math.abs(lv.d),1)+'<small> s</small></span>','',lv.pct,alert||r<0?null:lv.tone);
     renderMeas(ss,r);
   }else{
-    setDev(lv.tone,'Απόκλιση από ιδανικό',lv.verdict,sgn(lv.d)+fmt(Math.abs(lv.d),1)+'<small>s</small>',lv.mtxt,'',lv.pct);
+    {const tv=segmentSpeed(st,ss.x),nx=ss.next,after=ss.p[ss.k+1];
+    setDev(lv.tone,'Απόκλιση από ιδανικό',lv.verdict,sgn(lv.d)+fmt(Math.abs(lv.d),1)+'<small>s</small>',lv.mtxt,
+      '<span style="display:block;font-size:44px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums">'+fmt(ss.x/1000,3)+'<span style="font-size:20px"> km</span></span>'+
+      '<span style="font-size:16px">'+Math.max(0,Math.round(L.speed))+' / '+(tv?Math.round(tv):'—')+' km/h'+(nx?' · αλλαγή σε '+Math.max(0,Math.round(nx.d-ss.x))+' m'+(after?' → '+after.v:' · τέλος'):'')+'</span>',lv.pct);}
   }
 }
 function setNext(ss,pm){
@@ -1533,7 +1536,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v28 · 18/10 01:10 · πάγωμα στοιχίζει και το βιβλίο';
+window.APP_VER='v29 · 06/11 · ΜΩΤ: km ειδικής στην κεντρική οθόνη · χωρίς roadbook';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
