@@ -791,10 +791,16 @@ function onFix(pos){
           const st=Math.min(dt,5);G.movT+=st;if(vv*3.6<20)G.slowT+=st;
           let h=null;if(vv>3){h=(c.heading!=null&&isFinite(c.heading)&&c.heading>=0)?c.heading:(dp>2?brg(G.last,c):null);}
           if(h!=null){if(G.hd!=null){let d=Math.abs(h-G.hd);if(d>180)d=360-d;G.turn+=d;}G.hd=h;}}else G.hd=null;
-        G.v=vv;L.speed=G.moving?vv*3.6:0;}}}
+        G.v=vv;L.speed=G.moving?vv*3.6:0;}}
+    else if(dt>=30&&dt<=900)gpsGap(G.last,c,dt);}
   G.last={lat:c.latitude,lon:c.longitude,t,v};G.fixAt=performance.now();
   logFix(c,t);
 }
+// a long gap without good fixes (screen locked, app in the background, tunnel): add the straight line between the two
+// fixes instead of nothing — short on bends, but far closer than losing the whole stretch
+function gpsGap(a,c,dt){const dp=hav(a.lat,a.lon,c.latitude,c.longitude);if(dp<15||dp/dt*3.6>160)return;
+  G.dist+=dp;logEv('gps_gap',Math.round(dp),Math.round(dt)+' s');
+  setTimeout(()=>toast('Κενό GPS '+Math.round(dt)+' s · προστέθηκαν ~'+Math.round(dp*S.fGps)+' m σε ευθεία · έλεγξε με πάγωμα'),300);}
 function logFix(c,t){try{logRow([t,r7(c.latitude),r7(c.longitude),r1(c.altitude),r1(c.accuracy),r1(c.altitudeAccuracy),c.speed==null?null:Math.round(c.speed*100)/100,r1(c.heading),r1(G.dist),r1(meters())]);}catch(e){}}
 function brg(a,c){const r=Math.PI/180,y=Math.sin((c.longitude-a.lon)*r)*Math.cos(c.latitude*r),x=Math.cos(a.lat*r)*Math.sin(c.latitude*r)-Math.sin(a.lat*r)*Math.cos(c.latitude*r)*Math.cos((c.longitude-a.lon)*r);return (Math.atan2(y,x)/r+360)%360;}
 // snapshot of the GPS counters, and what happened between two snapshots
@@ -876,11 +882,14 @@ function stageState(){
   const p=pts(st),x=meters(),elapsed=st.start?(now()-st.start)/1000:null,n=p.length-1;
   let k;
   if(st.mode==='points')k=Math.min(n+1,(st.idx||0)+1);
-  else{k=n+1;for(let i=1;i<=n;i++)if(p[i].d>x){k=i;break;}}
+  else if(st.start&&st.fin===st.start)k=n+1;   // ΜΩΤ finished: stays finished even if the meters are zeroed for the route
+  else{k=n+1;for(let i=1;i<=n;i++)if(p[i].d>x){k=i;break;}
+    // finished = past the last distance near the ideal finish time (not when passing the start without zeroing)
+    if(n>0&&k>n&&st.start&&elapsed!=null&&elapsed>=p[n].t-120){st.fin=st.start;st.finDev=elapsed-p[n].t;save();}}
   const done=n>0&&k>n;
   return{st,p,x,elapsed,n,k,done,next:k<=n?p[k]:null};
 }
-function stageStatus(st){const p=pts(st),n=p.length-1;if(st.mode==='points'&&n&&(st.idx||0)>=n)return'Ολοκληρώθηκε';if(st.start&&now()>=st.start)return'Σε εξέλιξη';return'Αναμονή';}
+function stageStatus(st){const p=pts(st),n=p.length-1;if(st.mode==='points'&&n&&(st.idx||0)>=n)return'Ολοκληρώθηκε';if(st.mode!=='points'&&st.start&&st.fin===st.start)return'Ολοκληρώθηκε';if(st.start&&now()>=st.start)return'Σε εξέλιξη';return'Αναμονή';}
 
 /* ---------- actions ---------- */
 let toastT;function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,1800);}
@@ -1311,7 +1320,7 @@ function render(force){
     setDev(r<=10000?'alert':'idle','Εκκίνηση ειδικής σε','ΑΝΑΜΟΝΗ',cdTxt(r/1000),'Εκκίνηση '+hms(st.start),
       pm?'1ο σημείο: <b>'+ss.p[1].d+'</b> m στα <b>'+secTxt(ss.p[1].t)+'</b> s':'1ο τμήμα: ΜΩΤ <b>'+ss.p[1].v+'</b> έως <b>'+ss.p[1].d+'</b> m');return;
   }
-  if(ss.done){const lv=liveDev(ss);liaison('',st.name+' ✓ τέλος'+(pm?'':' · απόκλιση '+sgn(lv.d)+fmt(Math.abs(lv.d),1)+' s'));return;}
+  if(ss.done){const fd=st.fin===st.start&&isFinite(st.finDev)?st.finDev:liveDev(ss).d;liaison('',st.name+' ✓ τέλος'+(pm?'':' · απόκλιση '+sgn(fd)+fmt(Math.abs(fd),1)+' s'));return;}
   const lv=liveDev(ss);
   const target=st.start+ss.next.t*1000,r=target-now();
   countdown(st.id+':'+ss.k,r);
@@ -1445,7 +1454,7 @@ $('startIn30').onclick=()=>{const st=act();st.start=Math.ceil((now()+30000)/1000
 $('zeroBtn').onclick=zero;
 $('resetPass').onclick=()=>{$('resetConfirm').hidden=false;};
 $('resetNo').onclick=()=>{$('resetConfirm').hidden=true;};
-$('notDone').onclick=()=>{const st=act();if(!st)return;st.idx=0;st.pass=[];st.start=null;save();renderEditor();toast(st.name+': δεν έχει γίνει');};
+$('notDone').onclick=()=>{const st=act();if(!st)return;st.idx=0;st.pass=[];st.start=null;st.fin=null;st.finDev=null;save();renderEditor();toast(st.name+': δεν έχει γίνει');};
 $('resetYes').onclick=()=>{const st=act();st.idx=0;st.pass=[];$('resetConfirm').hidden=true;save();renderEditor();};
 
 /* ---------- calibration ---------- */
@@ -1550,14 +1559,23 @@ if(!S.stages.length){
 }
 if(!S.stages.find(s=>s.id===S.active))S.active=S.stages[0].id;
 for(const s of S.stages)if(s.demo&&(!s.start||s.start<now())){s.start=Math.ceil((now()+15000)/1000)*1000;s.idx=0;s.pass=[];}
-save();applyLayout();applyDay();showF();showOff();renderMarks();setupRb();applySource();renderEditor();
+/* distance survives the app being closed or reloaded: snapshot every second, restore when reopened within 15 min.
+   The first fix after reopening is joined to the last saved position (gpsGap), so the drive in between is added too. */
+const LIVEK='regapp.live';
+function liveSave(){if(S.source!=='gps')return;try{localStorage.setItem(LIVEK,JSON.stringify({t:Date.now(),m:meters(),last:G.last?{lat:G.last.lat,lon:G.last.lon,t:G.last.t}:null}));}catch(e){}}
+function liveRestore(){let v=null;try{v=JSON.parse(localStorage.getItem(LIVEK));}catch(e){}
+  if(!v||S.source!=='gps')return;const age=(Date.now()-v.t)/1000;if(!(age>=0&&age<900)||!isFinite(v.m)||Math.abs(v.m)<1)return;
+  L.corr+=v.m-meters();if(v.last)G.last={lat:v.last.lat,lon:v.last.lon,t:v.last.t,v:null};
+  logEv('restore',Math.round(v.m),Math.round(age)+' s');setTimeout(()=>toast('Συνέχεια από '+Math.round(v.m)+' m · διόρθωσε με πάγωμα αν χρειάζεται'),800);}
+save();applyLayout();applyDay();showF();showOff();renderMarks();setupRb();applySource();liveRestore();renderEditor();
+setInterval(liveSave,1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')liveSave();});
 Sim.start();
 setInterval(()=>{render(false);renderCal();},100);
 window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v32 · 06/11 · ◀ ▶ τουλίπες: το αντίθετο κουμπί ακυρώνει';
+window.APP_VER='v33 · 06/11 · μέτρα κρατιούνται αν κλείσει η εφαρμογή · κενά GPS · ΜΩΤ μένει τελειωμένη';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
