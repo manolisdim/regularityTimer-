@@ -778,7 +778,7 @@ function onFix(pos){
   const c=pos.coords,t=pos.timestamp||Date.now();G.acc=c.accuracy;G.err=null;
   // "GPS ready": accuracy has stayed at or under 6 m for 10 s
   if(c.accuracy<=6){if(!G.goodSince)G.goodSince=t;}else G.goodSince=0;
-  if(!(c.accuracy<=(+S.gpsAcc||25))){G.moving=false;logFix(c,t);return;} // keep G.last so the gap is bridged by the next good fix
+  if(!(c.accuracy<=(+S.gpsAcc||25))){G.moving=false;L.speed=0;logFix(c,t);return;} // keep G.last so the gap is bridged by the next good fix
   if(G.last&&t<=G.last.t)return; // iOS sometimes repeats the same fix
   const v=(c.speed!=null&&isFinite(c.speed)&&c.speed>=0)?c.speed:null;
   // smoothed altitude for slope correction
@@ -1281,6 +1281,7 @@ function render(force){
   $('simBar').hidden=S.source!=='sim';
   $('frozenTag').hidden=!L.frozen;
 
+  if(S.source==='gps'&&performance.now()-G.fixAt>3000){L.speed=0;G.moving=false;}   // no good fix: do not keep showing the last speed
   let ss=stageState();if(!ss)return;
   navRoll();tickPoints(ss);ss=stageState();
   const st=ss.st,pm=st.mode==='points';
@@ -1575,7 +1576,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v33 · 06/11 · μέτρα κρατιούνται αν κλείσει η εφαρμογή · κενά GPS · ΜΩΤ μένει τελειωμένη';
+window.APP_VER='v34 · 06/11 · ταχύτητα 0 όταν δεν υπάρχει σήμα GPS';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
