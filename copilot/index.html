@@ -86,6 +86,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .sheet-in h3{margin:0;font-family:var(--display);font-size:34px;font-weight:700}
 .sheet-in .field input{font-family:var(--display);font-size:44px;font-weight:700;min-height:72px}
 .sheet-in .btn{min-height:60px;font-size:19px}
+.sheet-in{max-height:100%;overflow-y:auto}
+:root.phone.land .sheet{padding:6px}:root.phone.land .sheet-in{padding:12px 18px;gap:8px}:root.phone.land .sheet-in h3{font-size:22px}:root.phone.land .sheet-in #shText{display:none}:root.phone.land .sheet-in .field input{font-size:32px;min-height:52px}:root.phone.land .sheet-in .btn{min-height:46px}:root.phone.land .steprow .btn{min-height:46px;font-size:20px}
 .frozen-tag{font-family:var(--display);font-weight:700;font-size:20px;color:var(--bg);background:var(--accent);border-radius:8px;padding:2px 10px}
 
 .side{display:flex;flex-direction:column;gap:14px;min-height:0}
@@ -241,6 +243,7 @@ table input{min-width:84px}
 :root.navfocus:not(.timefocus) .tdist{font-size:84px}
 :root.timefocus .dev{box-shadow:0 0 0 4px var(--accent)}
 :root.timefocus #tulStack{opacity:.85}
+.steprow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.steprow[hidden]{display:none}.steprow .btn{min-height:56px;font-size:24px;font-weight:800}
 .tulnav{display:flex;gap:8px;margin-top:auto;order:9}.tulnav[hidden]{display:none}.tulnav .btn{flex:1;min-height:52px;font-size:18px;font-weight:700}
 /* ---------- phone layout: only what the co-driver needs, no scrolling ---------- */
 .menubtn,.pagebtn{display:none}
@@ -685,6 +688,7 @@ table input{min-width:84px}
     <div class="slrows" id="shList" hidden style="max-height:60vh"></div>
     <div id="shEdit" class="stack">
       <div class="field"><label for="shInput" id="shLabel">Σωστή απόσταση σε αυτό το σημείο (m)</label><input id="shInput" class="num" inputmode="decimal" autocomplete="off"></div>
+      <div class="steprow" id="shStep" hidden><button class="btn" data-step="-10">−10</button><button class="btn" data-step="-1">−1</button><button class="btn" data-step="1">+1</button><button class="btn" data-step="10">+10</button></div>
       <div class="field" id="shF2" hidden><label for="shInput2" id="shLabel2"></label><input id="shInput2" class="num" inputmode="decimal" autocomplete="off"></div>
       <div class="btnrow" id="shQuick"></div>
     </div>
@@ -890,7 +894,10 @@ document.addEventListener('focusout',e=>{const el=e.target;if(!el||!(el.tagName=
   setTimeout(()=>{if(document.activeElement===el)return;const v=el.value;el.value=v+' ';el.value=v;},0);},true);
 function openSheet(o){SH=o;$('shF2').hidden=o.value2==null;if(o.value2!=null){$('shLabel2').textContent=o.label2;$('shInput2').value=o.value2;}$('shLabel').textContent=o.label||'Σωστή απόσταση σε αυτό το σημείο (m)';$('shCheckRow').hidden=!o.check;if(o.check){$('shCheckTxt').textContent=o.check;$('shCheck').checked=!!o.checked;}$('shList').hidden=!o.list;if(o.list)$('shList').innerHTML=o.list;$('shOk').hidden=!o.ok;$('shTitle').textContent=o.title;$('shText').textContent=o.text;$('shEdit').hidden=!o.edit;$('shOk').textContent=o.ok;
   $('shQuick').innerHTML='';(o.quick||[]).forEach(q=>{const b=document.createElement('button');b.className='btn';b.textContent=q.label;b.onclick=q.fn||(()=>{$('shInput').value=q.m;});$('shQuick').appendChild(b);});
-  $('sheet').hidden=false;if(o.edit){$('shInput').value=o.value;setTimeout(()=>{$('shInput').focus();$('shInput').select();},30);}else $('shOk').focus();}
+  const step=o.kind==='freeze'||o.kind==='edit';$('shStep').hidden=!step;
+  $('sheet').hidden=false;if(o.edit){$('shInput').value=o.value;if(!step)setTimeout(()=>{$('shInput').focus();$('shInput').select();},30);}else $('shOk').focus();}
+// −10 / −1 / +1 / +10 in the freeze and distance dialogs: change the number without typing (no keyboard)
+$('shStep').onclick=e=>{const b=e.target.closest('[data-step]');if(!b)return;const v=num($('shInput').value);$('shInput').value=Math.round((isFinite(v)?v:0)+(+b.dataset.step));};
 function meterEdit(kind){
   if(SH)return;const snap=meters();L.frozen={snap};
   const quick=[];const sec=rbSec();
@@ -1545,7 +1552,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v30 · 06/11 · μέτρα/0 m σε ΜΩΤ · ◀ ▶ τουλίπες';
+window.APP_VER='v31 · 06/11 · πάγωμα με ±1 / ±10';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
