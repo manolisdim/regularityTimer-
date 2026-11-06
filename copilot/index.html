@@ -1052,26 +1052,26 @@ function measureMap(st,sec){
   return m;
 }
 const TUL_HOLD=0.06,TUL_NEAR=0.15;   // switch ~60 m after a tulip; show the next one too when it is closer than 150 m
-// ◀ / ▶ under the tulips: the road book moves one tulip back or forward (only the book; the stage meters stay)
-let tulSkip=null,tulHist=[];
-function tulStep(d){const sec=rbSec();if(!sec)return;
-  // the opposite button undoes the last press exactly (▶ then ◀ = back to where it was, same meters to the tulip)
-  const top=tulHist[tulHist.length-1];
-  if(top&&top.d===-d&&top.sec===nav().sec){tulHist.pop();S.nav={sec:top.sec,off:top.off};tulSkip=top.skip;save();logEv('tul_undo',d);
-    const r2=rbSec().rows,x2=bookKm(),j2=r2.findIndex(r=>r.total>x2+0.0005);toast('Ακύρωση · επόμενη τουλίπα: '+(j2>=0?r2[j2].n:'—'));render(true);return;}
-  const rows=sec.rows,x=bookKm(),i0=rows.findIndex(r=>r.total>x+0.0005);
-  const t=d>0?i0:(i0<0?rows.length:i0)-2;
-  if(d>0&&i0<0){toast('Τέλος τμήματος βιβλίου');return;}
-  if(t<0){toast('Είσαι στην αρχή του τμήματος');return;}
-  tulHist.push({d,sec:nav().sec,off:nav().off,skip:tulSkip});if(tulHist.length>20)tulHist.shift();tulSkip=nav().sec+':'+t;const n=nav();n.off=Math.round((rows[t].total-meters()/1000)*1000)/1000;save();logEv('tul_step',d,rows[t].n);
-  toast('Επόμενη τουλίπα: '+(rows[t+1]?rows[t+1].n:'—'));render(true);}
+// ◀ / ▶ under the tulips: only WHICH tulip is shown changes. The distance is always tulip km − where you are,
+// nothing is moved. The choice holds until the meters reach the next tulip, then it follows the meters again.
+let tulSkip=null,tulShift=0,tulBase=null;
+function tulI0(rows,x){const i=rows.findIndex(r=>r.total>x+0.0005);return i<0?rows.length:i;}
+function tulStep(d){const sec=rbSec();if(!sec)return;const rows=sec.rows,i0=tulI0(rows,bookKm());
+  if(tulBase!==i0){tulBase=i0;tulShift=0;}
+  const f=Math.max(0,Math.min(rows.length-1,i0+tulShift+d));
+  if(f===i0+tulShift){toast(d>0?'Τέλος τμήματος βιβλίου':'Είσαι στην αρχή του τμήματος');return;}
+  tulShift=f-i0;logEv('tul_show',d,rows[f].n);toast('Τουλίπα '+rows[f].n+(tulShift?'':' · ακολουθεί ξανά τα μέτρα'));render(true);}
 function stackList(st,view){
   const sec=rbSec();if(!sec)return[];
   const x=bookKm(),rows=sec.rows,mm=measureMap(st,sec),out=[],max=view==='timing'?3:2;
+  {const b=tulI0(rows,x);if(tulBase!==b){tulBase=null;tulShift=0;}
+   if(tulShift){const f=Math.max(0,Math.min(rows.length-1,b+tulShift));out.push({j:f,passed:rows[f].total<=x+0.0005});
+     for(let j=f+1;j<rows.length&&out.length<max&&rows[j].total-rows[j-1].total<TUL_NEAR;j++)out.push({j});
+     return out.map(o=>Object.assign(o,{r:rows[o.j],m:mm.get(o.j)||null}));}}
   // a measurement tulip stays on screen until 5 s after its ideal time
   if(st.start){let held=null;mm.forEach((v,j)=>{if(rows[j].total<=x+0.0005&&now()<st.start+v.t*1000+5000)held=j;});if(held!=null)out.push({j:held,held:true});}
   // a tulip just passed by the meters stays on top for TUL_HOLD km (~60 m) more: if the GPS reads a little long, it is not lost before you reach it
-  if(!out.length){let pj=-1;rows.forEach((r,j)=>{if(r.total<=x+0.0005&&x-r.total<=TUL_HOLD)pj=j;});if(pj>=0&&(pj>0||x>0.0005)&&tulSkip!==nav().sec+':'+pj)out.push({j:pj,passed:true});}
+  if(!out.length){let pj=-1;rows.forEach((r,j)=>{if(r.total<=x+0.0005&&x-r.total<=TUL_HOLD)pj=j;});if(pj>=0&&(pj>0||x>0.0005))out.push({j:pj,passed:true});}
   const i0=rows.findIndex(r=>r.total>x+0.0005);
   // the next tulip joins the one on top only when it is close (under TUL_NEAR km after it), so a near tulip is never missed
   if(i0>=0){if(!(out.length&&out[0].passed&&rows[i0].total-rows[out[0].j].total>=TUL_NEAR))out.push({j:i0});
@@ -1576,7 +1576,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v34 · 06/11 · ταχύτητα 0 όταν δεν υπάρχει σήμα GPS';
+window.APP_VER='v35 · 06/11 · ◀ ▶ αλλάζουν μόνο ποια τουλίπα φαίνεται, η απόσταση = km τουλίπας − μέτρα';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
