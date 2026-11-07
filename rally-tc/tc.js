@@ -176,6 +176,7 @@ function distAt(segs, e){
 // ---------- Κατάσταση ----------
 let num = null, parts = {}, byDorsal = {}, sections = [], secById = {};
 let ev = {};                 // ev[section][participant][index] = ώρα άφιξης του κοκκινίσματος (unix, δευτ.)
+let offv = {};               // επίσημα δευτερόλεπτα όταν η ειδική δεν είναι κρυφή: offv[section][participant][index]
 let pos = {};                // pos[participant] = [[ώρα GPS, lat, lon, km/h], ...] σε σειρά χρόνου
 let latAll = [];             // καθυστέρηση μηνυμάτων θέσης (για την ένδειξη κατάστασης)
 let ws = null, wsOk = false, wsTimer = null, tab = "tc", stageSel = null, fresh = new Set();
@@ -448,6 +449,8 @@ function onEvent(type, d, now){
     const k = sec.controls.indexOf(String(d.control_point)); if (k < 0) return;
     const s = ev[d.section] = ev[d.section] || {};
     const r = s[d.participant] = s[d.participant] || {};
+    const sv = parseFloat(String(d.seconds).replace(",", "."));
+    if (!isNaN(sv) && String(d.seconds).trim() !== ""){ ((offv[d.section] = offv[d.section] || {})[d.participant] = offv[d.section][d.participant] || {})[k] = sv; if (tab === "tc") render(); }
     if (r[k] != null) return;                 // κρατάμε μόνο το πρώτο κοκκίνισμα
     r[k] = +now.toFixed(2);
     fresh.add(d.section + "/" + k);
@@ -515,6 +518,8 @@ function renderTc(){
       const a = Math.abs(t.dev), cls = a < 0.3 ? "ok" : t.dev > 0 ? "late" : "early";
       dev = `<span class="d ${cls}">${t.dev > 0 ? "+" : t.dev < 0 ? "−" : ""}${fmtS(a)}″<small>${a < 0.3 ? "στον χρόνο" : t.dev > 0 ? "αργά" : "νωρίς"}</small></span>`;
     }
+    const mp = mePid(), ov = mp && offv[cur.section] && offv[cur.section][mp] ? offv[cur.section][mp][t.k] : null;
+    if (ov != null) dev = dev.replace(/<\/span>$/, `<small style="color:var(--fg)">επίσημο ${ov > 0 ? "+" : ov < 0 ? "−" : ""}${fmtS(Math.abs(ov))}″</small></span>`);
     const rowsD = [...t.all].sort((a, b) => a.e - b.e).map(x => `<tr class="${t.kept.includes(x) ? "" : "out"}"><td><span class="no">${esc(x.d)}</span></td><td>${fmtEl(x.e)}</td><td>${t.mean != null ? (x.e - t.mean >= 0 ? "+" : "−") + fmtS(Math.abs(x.e - t.mean)) + "″" : ""}</td></tr>`).join("")
       + (t.mine ? `<tr class="mine"><td><span class="no me">${esc(t.mine.d)}</span></td><td>${fmtEl(t.mine.e)}</td><td>${t.dev != null ? (t.dev >= 0 ? "+" : "−") + fmtS(Math.abs(t.dev)) + "″" : ""}</td></tr>` : "");
     const map = t.loc ? `<p><a href="https://maps.google.com/?q=${t.loc[0].toFixed(6)},${t.loc[1].toFixed(6)}" target="_blank" rel="noopener">Θέση στον χάρτη</a></p>` : "";
@@ -636,6 +641,7 @@ if (startNum) connect(startNum); else render();
 window.tcFeed = (type, d, a) => onEvent(type, d, a);
 window.tcCompute = (sec) => compute(sec);
 window.tcFix = (lat, lon) => { gpsOn = true; myFix = { lat, lon, acc: 5 }; tab = "tc"; render(); return root.getElementById("live").innerText; };
+window.tcOff = () => offv;
 window.tcOpen = (id) => { if (secById[id]) secById[id].closed = false; };
 
 })();
