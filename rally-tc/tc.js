@@ -91,7 +91,7 @@ h2 small{font:500 13px var(--body);letter-spacing:0;text-transform:none;color:va
 .set .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .set .row button{height:40px;padding:0 14px;background:var(--panel);color:var(--fg);border:1px solid var(--line)}
 .empty{padding:24px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;line-height:1.5}
-.note{font-size:12px;line-height:1.45;color:var(--muted);margin:14px 2px 0}
+.gpsbtn{width:100%;height:54px;margin:0 0 12px;background:var(--panel);color:var(--fg);border:1px solid var(--line);font-size:17px}\n.live{background:var(--panel);border:2px solid var(--gold);border-radius:12px;padding:12px;margin:0 0 12px}\n.live .lm{font:600 26px/1.15 var(--display)}\n.live .lm b{font-weight:700;color:var(--gold)}\n.live .ls{font-size:13px;color:var(--muted);margin-top:4px}\n.live a,.det a{color:inherit}\n.note{font-size:12px;line-height:1.45;color:var(--muted);margin:14px 2px 0}
 </style><div class="app" id="app"><div class="top">
   <div class="brand"><b>Regularity <span>TC</span></b><span id="status" class="status"></span><button type="button" class="x" id="hide" aria-label="Κλείσιμο" hidden>✕</button></div>
   <form id="f" autocomplete="off">
@@ -175,66 +175,186 @@ function distAt(segs, e){
 
 // ---------- Κατάσταση ----------
 let num = null, parts = {}, byDorsal = {}, sections = [], secById = {};
-let ev = {};                 // ev[section][participant][index] = ώρα περάσματος (unix, δευτ.)
-let arr = {};                // ώρα άφιξης του μηνύματος (μόνο στη μνήμη)
-let lat = {}, latAll = [];   // καθυστέρηση δικτύου ανά πλήρωμα / συνολικά
+let ev = {};                 // ev[section][participant][index] = ώρα άφιξης του κοκκινίσματος (unix, δευτ.)
+let pos = {};                // pos[participant] = [[ώρα GPS, lat, lon, km/h], ...] σε σειρά χρόνου
+let latAll = [];             // καθυστέρηση μηνυμάτων θέσης (για την ένδειξη κατάστασης)
 let ws = null, wsOk = false, wsTimer = null, tab = "tc", stageSel = null, fresh = new Set();
-const crewsKey = () => "tcCrews_" + num, meKey = () => "tcMe_" + num, evKey = () => "tcEv_" + num, motKey = () => "tcMot_" + num;
+const crewsKey = () => "tcCrews_" + num, meKey = () => "tcMe_" + num, evKey = () => "tcEv2_" + num, posKey = () => "tcPos_" + num, motKey = () => "tcMot_" + num;
 const enabled = () => new Set(store.json(crewsKey(), []));
 const meDorsal = () => store.get(meKey(), "");
+const mePid = () => { const p = byDorsal[meDorsal()]; return p ? String(p.participant) : null; };
 const tol = () => { const t = parseFloat(String(store.get("tcTol", "1.5")).replace(",", ".")); return isNaN(t) || t <= 0 ? 1.5 : t; };
 function motTable(){ return store.json(motKey(), DEFAULTS[num] || {}); }
 
-function netDelay(pid){
-  const a = lat[pid];
-  if (a && a.length >= 2) return median(a);
-  return latAll.length ? median(latAll) : 3;
+// Μετρημένο στη T11 Δαναών 2026: το κοκκίνισμα ενός TC έρχεται ~12″ (7–19″) μετά το πέρασμα,
+// της εκκίνησης ~28″ μετά το ακαριαίο λεπτό. Ο χρόνος περάσματος βγαίνει από το GPS (±0,3″).
+const DELAY = 12;
+const R_E = 6371000, RAD = Math.PI / 180;
+function hv(a, b){ const p1 = a[0] * RAD, p2 = b[0] * RAD, dp = p2 - p1, dl = (b[1] - a[1]) * RAD; return 2 * R_E * Math.asin(Math.sqrt(Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2)); }
+// θέση (και ταχύτητα) ενός πληρώματος σε ώρα t, με παρεμβολή
+function posAt(pid, t){
+  const a = pos[pid]; if (!a || a.length < 2 || t < a[0][0] || t > a[a.length - 1][0]) return null;
+  let lo = 0, hi = a.length - 1;
+  while (hi - lo > 1){ const m = (lo + hi) >> 1; if (a[m][0] <= t) lo = m; else hi = m; }
+  const A = a[lo], B = a[hi], f = B[0] > A[0] ? (t - A[0]) / (B[0] - A[0]) : 0;
+  if (B[0] - A[0] > 30) return null; // κενό στο GPS
+  return [A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f, A[3] + (B[3] - A[3]) * f];
+}
+// πότε πέρασε το πλήρωμα πιο κοντά από το σημείο pt, ανάμεσα σε t0 και t1
+function cross(pid, pt, t0, t1){
+  const a = pos[pid]; if (!a) return null;
+  const kx = Math.cos(pt[0] * RAD) * R_E * RAD, ky = R_E * RAD;
+  let best = null;
+  for (let j = 1; j < a.length; j++){
+    const A = a[j - 1], B = a[j];
+    if (B[0] < t0 || A[0] > t1 || B[0] - A[0] > 30) continue;
+    const ax = (A[2] - pt[1]) * kx, ay = (A[1] - pt[0]) * ky, bx = (B[2] - pt[1]) * kx, by = (B[1] - pt[0]) * ky;
+    const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
+    let f = L ? -(ax * dx + ay * dy) / L : 0; f = Math.max(0, Math.min(1, f));
+    const d = Math.hypot(ax + dx * f, ay + dy * f);
+    if (!best || d < best.d) best = { d, t: A[0] + (B[0] - A[0]) * f };
+  }
+  return best;
+}
+const medPt = (pts) => [median(pts.map(p => p[0])), median(pts.map(p => p[1]))];
+
+// Καθαρά περάσματα ανά πλήρωμα (χωρίς τις μαζικές αποστολές) + ακαριαίο λεπτό εκκίνησης
+function cleanRows(secId){
+  const rows = ev[secId] || {}, outR = {};
+  Object.keys(rows).forEach(pid => {
+    const r = rows[pid];
+    const ks = Object.keys(r).map(Number).sort((a, b) => a - b), bad = new Set();
+    for (let i = 1; i < ks.length; i++) if (Math.abs(r[ks[i]] - r[ks[i - 1]]) < 2){ bad.add(ks[i]); bad.add(ks[i - 1]); }
+    const ok = {}; ks.forEach(k => { if (!bad.has(k)) ok[k] = r[k]; });
+    const start = ok[0] != null ? Math.floor((ok[0] - 15) / 60) * 60 : null;
+    outR[pid] = { a: ok, start };
+  });
+  return outR;
 }
 
 // ---------- Υπολογισμός για μία ειδική ----------
 function compute(secId){
   const sec = secById[secId]; if (!sec) return null;
   const segs = motTable()[sec.name] || null;
-  const en = enabled(), me = meDorsal(), T = tol();
-  const rows = ev[secId] || {};
-  const crews = {};               // pid -> {d, start, el:{k: elapsed}}
-  Object.keys(rows).forEach(pid => {
-    const p = parts[pid]; if (!p) return;
-    const r = rows[pid];
-    if (r[0] == null) return;
-    // Δύο διαδοχικά σημεία με < 2″ διαφορά = μαζική αποστολή, όχι πραγματικό πέρασμα
-    const ks = Object.keys(r).map(Number).sort((a, b) => a - b), bad = new Set();
-    for (let i = 1; i < ks.length; i++) if (Math.abs(r[ks[i]] - r[ks[i - 1]]) < 2){ bad.add(ks[i]); bad.add(ks[i - 1]); }
-    if (bad.has(0)) return;
-    const start = Math.floor((r[0] + 20) / 60) * 60;   // ακαριαίο λεπτό
-    const el = {};
-    ks.forEach(k => { if (k > 0 && !bad.has(k)) el[k] = r[k] - start; });
-    crews[pid] = { d: String(p.dorsal), start, el };
-  });
+  const en = enabled(), meP = mePid(), T = tol();
+  const rows = cleanRows(secId);
   const nTc = sec.controls.length - 1;
   const tcs = [];
   for (let k = 1; k <= nTc; k++){
-    const all = [];
-    let mine = null;
-    Object.keys(crews).forEach(pid => {
-      const c = crews[pid], e = c.el[k];
-      if (e == null) return;
-      if (c.d === me) mine = { d: c.d, e, start: c.start };
-      else if (en.has(c.d)) all.push({ d: c.d, e });
+    // 1) Θέση του TC: πού ήταν κάθε αυτοκίνητο ~12″ πριν το κοκκίνισμα (μόνο αν κινούνταν)
+    let pts = [];
+    Object.keys(rows).forEach(pid => {
+      const a = rows[pid].a[k]; if (a == null) return;
+      const p = posAt(pid, a - DELAY);
+      if (p && p[2] > 15) pts.push([p[0], p[1]]);
     });
-    // Βγάζουμε όποιον απέχει > T δευτ. από τους υπόλοιπους (γύρω από τη μεσαία τιμή, 2 περάσματα)
+    let loc = null, spread = null;
+    if (pts.length){
+      loc = medPt(pts);
+      for (let i = 0; i < 2; i++){ const near = pts.filter(p => hv(p, loc) < 120); if (near.length >= 2) loc = medPt(near); }
+      spread = median(pts.map(p => hv(p, loc)));
+    }
+    // 2) Χρόνος από το ακαριαίο λεπτό μέχρι το πέρασμα, από το GPS του καθενός
+    const all = []; let mine = null;
+    if (loc) Object.keys(rows).forEach(pid => {
+      const r = rows[pid], a = r.a[k]; if (a == null || r.start == null) return;
+      const cr = cross(pid, loc, a - 90, a + 5);
+      if (!cr || cr.d > 60) return;
+      const p = parts[pid]; if (!p) return;
+      const x = { d: String(p.dorsal), e: cr.t - r.start };
+      if (pid === meP) mine = x;
+      else if (!en.size || en.has(x.d)) all.push(x);
+    });
+    // 3) Όποιος απέχει > T″ από τους υπόλοιπους βγαίνει εκτός, μέσος όρος των υπολοίπων
     let kept = all;
     for (let i = 0; i < 2 && kept.length >= 2; i++){
       const m = median(kept.map(x => x.e));
       const nk = all.filter(x => Math.abs(x.e - m) <= T);
       if (nk.length) kept = nk;
     }
-    const mean = kept.length ? kept.reduce((a, x) => a + x.e, 0) / kept.length : null;
+    const mean = kept.length ? kept.reduce((s, x) => s + x.e, 0) / kept.length : null;
     const dist = mean != null && segs ? distAt(segs, mean) : null;
-    tcs.push({ k, all, kept, out: all.filter(x => !kept.includes(x)), mean, dist, mine, dev: mine && mean != null ? mine.e - mean : null });
+    tcs.push({ k, loc, n: pts.length, spread, all, kept, out: all.filter(x => !kept.includes(x)), mean, dist, mine, dev: mine && mean != null ? mine.e - mean : null });
   }
-  return { sec, segs, tcs, nCrews: Object.keys(crews).length };
+  return { sec, segs, tcs, rows, nCrews: Object.values(rows).filter(r => r.start != null).length };
 }
+
+// ---------- Μέτρα μέχρι το επόμενο TC με το GPS του κινητού ----------
+// Η απόσταση μετριέται πάνω στη διαδρομή ενός αυτοκινήτου που έχει ήδη περάσει (όχι σε ευθεία).
+let ref = null; // { key, pts:[[lat,lon,s]] }
+function refTrack(secId, r){
+  // το πλήρωμα που έχει προχωρήσει πιο πολύ στην ειδική
+  let best = null;
+  Object.keys(r.rows).forEach(pid => {
+    const x = r.rows[pid]; if (x.start == null || !pos[pid]) return;
+    const ks = Object.keys(x.a).map(Number); const kmax = Math.max(...ks);
+    if (!best || kmax > best.kmax || (kmax === best.kmax && x.a[kmax] > best.t)) best = { pid, kmax, t: x.a[kmax], start: x.start };
+  });
+  if (!best) return null;
+  const key = secId + "/" + best.pid + "/" + pos[best.pid].length;
+  if (ref && ref.key === key) return ref;
+  const a = pos[best.pid].filter(q => q[0] >= best.start - 5);
+  const pts = []; let s = 0;
+  a.forEach((q, i) => { if (i) s += hv([a[i - 1][1], a[i - 1][2]], [q[1], q[2]]); pts.push([q[1], q[2], s]); });
+  ref = { key, pts };
+  return ref;
+}
+function project(trk, pt, sMin){
+  const kx = Math.cos(pt[0] * RAD) * R_E * RAD, ky = R_E * RAD;
+  let best = null;
+  for (let j = 1; j < trk.length; j++){
+    const A = trk[j - 1], B = trk[j];
+    if (sMin != null && B[2] < sMin) continue;
+    const ax = (A[1] - pt[1]) * kx, ay = (A[0] - pt[0]) * ky, bx = (B[1] - pt[1]) * kx, by = (B[0] - pt[0]) * ky;
+    const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
+    let f = L ? -(ax * dx + ay * dy) / L : 0; f = Math.max(0, Math.min(1, f));
+    const d = Math.hypot(ax + dx * f, ay + dy * f);
+    if (!best || d < best.d) best = { d, s: A[2] + (B[2] - A[2]) * f };
+  }
+  return best;
+}
+let gpsOn = store.get("tcGps", "0") === "1", gpsWatch = null, myFix = null, mySPrev = null, gpsErr = "";
+function setGps(on){
+  gpsOn = on; store.set("tcGps", on ? "1" : "0");
+  if (gpsWatch != null){ try { navigator.geolocation.clearWatch(gpsWatch); } catch(e){} gpsWatch = null; }
+  myFix = null; mySPrev = null; gpsErr = "";
+  if (on && navigator.geolocation){
+    gpsWatch = navigator.geolocation.watchPosition(
+      p => { myFix = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() }; gpsErr = ""; updateLive(); },
+      e => { gpsErr = e.code === 1 ? "Δεν δόθηκε άδεια τοποθεσίας στο Safari." : "Δεν βρίσκω GPS."; updateLive(); },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+  }
+}
+function liveHtml(){
+  if (!gpsOn) return `<button type="button" class="gpsbtn" data-gps="1">📍 Μέτρα μέχρι το TC με το GPS μου</button>`;
+  const cur = currentStage(); const r = cur && compute(cur.section);
+  let main = "", sub = "";
+  if (gpsErr) main = gpsErr;
+  else if (!myFix) main = "Περιμένω GPS…";
+  else {
+    const trk = r && refTrack(cur.section, r);
+    if (!trk || trk.pts.length < 2) main = "Δεν έχει περάσει ακόμα κανείς από την ειδική.";
+    else {
+      const me = [myFix.lat, myFix.lon];
+      let pm = project(trk.pts, me, mySPrev != null ? mySPrev - 150 : null);
+      if (!pm || pm.d > 150) pm = project(trk.pts, me, null);
+      if (!pm || pm.d > 150) main = "Εκτός διαδρομής της ειδικής";
+      else {
+        mySPrev = pm.s;
+        const ahead = r.tcs.filter(t => t.loc).map(t => ({ t, s: project(trk.pts, t.loc, null) })).filter(x => x.s && x.s.d < 80 && x.s.s > pm.s - 5).sort((a, b) => a.s.s - b.s.s);
+        if (!ahead.length) main = "Επόμενο TC: δεν το έχει περάσει κανείς ακόμα";
+        else {
+          const x = ahead[0], last = x.t.k === r.tcs.length;
+          main = `<b>${last ? "ΤΕΛΟΣ" : "TC" + x.t.k}</b> σε <b>${fmtM(Math.max(0, x.s.s - pm.s))}</b>`;
+          if (ahead[1]) sub = `μετά ${ahead[1].t.k === r.tcs.length ? "ΤΕΛΟΣ" : "TC" + ahead[1].t.k} σε ${fmtM(ahead[1].s.s - pm.s)} · `;
+          sub += `θέση TC ±${Math.round(x.t.spread || 0)} m (${x.t.n} αυτ.)`;
+        }
+      }
+    }
+  }
+  return `<div class="live"><div class="lm">${main}</div>${sub ? `<div class="ls">${sub}</div>` : ""}<div class="ls">GPS ±${myFix ? Math.round(myFix.acc) : "–"} m · <a href="#" data-gps="0">κλείσιμο</a></div></div>`;
+}
+function updateLive(){ const el = root.getElementById("live"); if (el && tab === "tc") el.innerHTML = liveHtml(); }
 
 // ---------- Δεδομένα ----------
 function api(path){
@@ -245,8 +365,8 @@ const isPlaceholder = (p) => { const pil = String(p.piloto || "").trim(); return
 
 async function connect(n){
   num = n; store.set("tcRally", n);
-  ev = store.json(evKey(), {}); arr = {};
-  lat = {}; latAll = []; stageSel = store.get("tcStage_" + n, null);
+  ev = store.json(evKey(), {}); pos = store.json(posKey(), {});
+  latAll = []; ref = null; stageSel = store.get("tcStage_" + n, null);
   closeWs();
   setStatus("Φόρτωση…");
   const cache = store.json("tcStruct_" + n, null);
@@ -291,22 +411,31 @@ let wsFails = 0;
 function retryWs(n){ wsFails++; if (!INJECTED && wsFails === 2 && tab === "tc") render(); clearTimeout(wsTimer); wsTimer = setTimeout(() => { if (num === n && (!ws || ws.readyState > 1)) openWs(); }, 4000); }
 function closeWs(){ clearTimeout(wsTimer); if (ws){ ws.onclose = null; try { ws.close(); } catch(e){} } ws = null; wsOk = false; }
 
-let saveT = null;
+let saveT = null, posSaveT = null;
+function savePos(){
+  // κρατάμε την τελευταία 1 ώρα θέσεων (για να αντέξει ανανέωση της σελίδας)
+  const lim = Date.now() / 1000 - 3600, o = {};
+  Object.keys(pos).forEach(p => { const a = pos[p].filter(q => q[0] >= lim); if (a.length) o[p] = a; });
+  pos = o;
+  try { localStorage.setItem(posKey(), JSON.stringify(o)); } catch(e){ try { localStorage.removeItem(posKey()); } catch(e2){} }
+}
 function onEvent(type, d, now){
-  if (type === "participant" && d && d.unixtime_gps){
+  if (type === "participant" && d && d.unixtime_gps && d.latitude){
     const l = now - d.unixtime_gps;
-    if (l > -5 && l < 60){
-      const a = lat[d.participant] = lat[d.participant] || []; a.push(l); if (a.length > 10) a.shift();
-      latAll.push(l); if (latAll.length > 300) latAll.shift();
-    }
+    if (l > -5 && l < 60){ latAll.push(l); if (latAll.length > 300) latAll.shift(); }
+    const a = pos[d.participant] = pos[d.participant] || [];
+    const q = [d.unixtime_gps, +(+d.latitude).toFixed(6), +(+d.longitude).toFixed(6), +d.speed || 0];
+    if (!a.length || q[0] > a[a.length - 1][0]) a.push(q);
+    else if (!a.some(x => x[0] === q[0])){ a.push(q); a.sort((x, y) => x[0] - y[0]); }
+    if (!posSaveT) posSaveT = setTimeout(() => { posSaveT = null; savePos(); }, 30000);
     return;
   }
   if (type === "closesection" && d){
     // Στο κλείσιμο το Anube στέλνει μαζεμένα «περάσματα» για όσους δεν πέρασαν: τα πετάμε
     const sec = secById[d.section]; if (sec) sec.closed = true;
-    const A = arr[d.section] || {}, s = ev[d.section] || {};
-    Object.keys(A).forEach(pid => Object.keys(A[pid]).forEach(k => { if (now - A[pid][k] < 8 && s[pid]) delete s[pid][k]; }));
-    store.set(evKey(), JSON.stringify(ev));
+    const s = ev[d.section] || {};
+    Object.keys(s).forEach(pid => Object.keys(s[pid]).forEach(k => { if (now - s[pid][k] < 8) delete s[pid][k]; }));
+    store.set(evKey(), JSON.stringify(ev)); savePos();
     if (tab === "tc") render();
     return;
   }
@@ -316,16 +445,14 @@ function onEvent(type, d, now){
     const s = ev[d.section] = ev[d.section] || {};
     const r = s[d.participant] = s[d.participant] || {};
     if (r[k] != null) return;                 // κρατάμε μόνο το πρώτο κοκκίνισμα
-    r[k] = +(now - netDelay(d.participant)).toFixed(2);
-    ((arr[d.section] = arr[d.section] || {})[d.participant] = arr[d.section][d.participant] || {})[k] = now;
+    r[k] = +now.toFixed(2);
     fresh.add(d.section + "/" + k);
-    if (!stageSel || store.get("tcStage_" + num, "auto") === "auto") autoStage = d.section;
+    if (store.get("tcStage_" + num, "auto") === "auto") autoStage = d.section;
     clearTimeout(saveT); saveT = setTimeout(() => store.set(evKey(), JSON.stringify(ev)), 500);
-    const p = parts[d.participant];
-    if (p && String(p.dorsal) === meDorsal() && k > 0){ try { navigator.vibrate && navigator.vibrate(150); } catch(e){} }
-    if (tab === "tc") render();
+    if (tab === "tc"){ clearTimeout(rT); rT = setTimeout(render, 13000); render(); } // ξανά μετά από 13″, όταν έχουν έρθει οι θέσεις
   }
 }
+let rT = null;
 let autoStage = null;
 
 function setStatus(msg, err){
@@ -364,31 +491,34 @@ function renderTc(){
   let h = `<div class="chips">${chip("auto", "Τρέχουσα")}${sections.map(s => chip(String(s.section), esc(s.name), !!ev[s.section])).join("")}</div>`;
   const r = compute(cur.section);
   const me = meDorsal(), en = enabled();
-  h += `<h2>${esc(stageLabel(cur))} <small>${r.nCrews} πληρώματα με εκκίνηση</small></h2>`;
-  h += `<div class="me">${me ? `Εσύ: <span class="no me">${esc(me)}</span>` : `Δεν έχεις διαλέξει ποιο πλήρωμα είσαι (καρτέλα Πληρώματα).`} · μετράνε <b>${[...en].filter(d => d !== me).length}</b> πληρώματα · όριο ±${fmtS(tol())}″</div>`;
-  if (!r.segs) h += `<div class="empty" style="margin-bottom:10px">Δεν υπάρχουν ΜΩΤ για την ${esc(cur.name)}. Δείχνω μόνο χρόνο από την εκκίνηση. Πρόσθεσέ τες στις Ρυθμίσεις.</div>`;
-  if (!en.size) h += `<div class="empty" style="margin-bottom:10px">Διάλεξε στην καρτέλα <b>Πληρώματα</b> ποια πληρώματα θα μετράνε.</div>`;
+  h += `<div id="live">${liveHtml()}</div>`;
+  h += `<h2>${esc(stageLabel(cur))} <small>${r.nCrews} πληρώματα ξεκίνησαν</small></h2>`;
+  h += `<div class="me">${me ? `Εσύ: <span class="no me">${esc(me)}</span>` : `Δεν έχεις διαλέξει ποιο πλήρωμα είσαι (καρτέλα Πληρώματα).`} · χρόνος από ${en.size ? "<b>" + [...en].filter(d => d !== me).length + "</b> επιλεγμένα" : "<b>όλα</b> τα"} πληρώματα · όριο ±${fmtS(tol())}″</div>`;
+  if (!r.segs) h += `<div class="empty" style="margin-bottom:10px">Δεν υπάρχουν ΜΩΤ για την ${esc(cur.name)}. Δείχνω χρόνο από την εκκίνηση αντί για μέτρα. Πρόσθεσέ τες στις Ρυθμίσεις.</div>`;
   r.tcs.forEach(t => {
     const key = cur.section + "/" + t.k;
     const isFresh = fresh.has(key); fresh.delete(key);
     const last = t.k === r.tcs.length;
+    const info = `${t.kept.length} πληρ.${t.out.length ? " · " + t.out.length + " εκτός" : ""}${t.spread != null ? " · θέση ±" + Math.round(t.spread) + " m" : ""}`;
     let main;
-    if (t.mean == null) main = `<span class="m">—<small>κανένα πέρασμα ακόμα</small></span>`;
-    else if (t.dist != null) main = `<span class="m">${fmtM(t.dist)}<small>${t.kept.length} πληρ.${t.out.length ? " · " + t.out.length + " εκτός" : ""} · ${fmtEl(t.mean)}</small></span>`;
-    else main = `<span class="m">${fmtEl(t.mean)}<small>${t.kept.length} πληρ.${t.out.length ? " · " + t.out.length + " εκτός" : ""}${r.segs ? " · μετά το τέλος των ΜΩΤ" : ""}</small></span>`;
+    if (!t.n) main = `<span class="m">—<small>κανένα πέρασμα ακόμα</small></span>`;
+    else if (t.mean == null) main = `<span class="m">…<small>${t.n} πέρασμα(τα) · περιμένω GPS</small></span>`;
+    else if (t.dist != null) main = `<span class="m">${fmtM(t.dist)}<small>${info} · ${fmtEl(t.mean)}</small></span>`;
+    else main = `<span class="m">${fmtEl(t.mean)}<small>${info}</small></span>`;
     let dev;
-    if (t.dev == null) dev = `<span class="d none">${t.mine ? "—" : ""}</span>`;
+    if (t.dev == null) dev = `<span class="d none"></span>`;
     else {
       const a = Math.abs(t.dev), cls = a < 0.3 ? "ok" : t.dev > 0 ? "late" : "early";
       dev = `<span class="d ${cls}">${t.dev > 0 ? "+" : t.dev < 0 ? "−" : ""}${fmtS(a)}″<small>${a < 0.3 ? "στον χρόνο" : t.dev > 0 ? "αργά" : "νωρίς"}</small></span>`;
     }
     const rowsD = [...t.all].sort((a, b) => a.e - b.e).map(x => `<tr class="${t.kept.includes(x) ? "" : "out"}"><td><span class="no">${esc(x.d)}</span></td><td>${fmtEl(x.e)}</td><td>${t.mean != null ? (x.e - t.mean >= 0 ? "+" : "−") + fmtS(Math.abs(x.e - t.mean)) + "″" : ""}</td></tr>`).join("")
       + (t.mine ? `<tr class="mine"><td><span class="no me">${esc(t.mine.d)}</span></td><td>${fmtEl(t.mine.e)}</td><td>${t.dev != null ? (t.dev >= 0 ? "+" : "−") + fmtS(Math.abs(t.dev)) + "″" : ""}</td></tr>` : "");
-    h += `<details class="tc ${t.mean == null ? "wait" : ""} ${isFresh ? "fresh" : ""}"><summary><span class="k">${last ? "ΤΕΛΟΣ" : "TC" + t.k}</span>${main}${dev}</summary>`
-      + `<div class="det">${rowsD ? `<table>${rowsD}</table>` : "Κανένα πέρασμα από τα επιλεγμένα πληρώματα."}</div></details>`;
+    const map = t.loc ? `<p><a href="https://maps.google.com/?q=${t.loc[0].toFixed(6)},${t.loc[1].toFixed(6)}" target="_blank" rel="noopener">Θέση στον χάρτη</a></p>` : "";
+    h += `<details class="tc ${!t.n ? "wait" : ""} ${isFresh ? "fresh" : ""}"><summary><span class="k">${last ? "ΤΕΛΟΣ" : "TC" + t.k}</span>${main}${dev}</summary>`
+      + `<div class="det">${rowsD ? `<table>${rowsD}</table>` : "Κανένα πέρασμα ακόμα."}${map}</div></details>`;
   });
   if (!INJECTED && !wsOk && wsFails >= 2) h = `<div class="empty" style="margin-bottom:12px;text-align:left">Το Anube δέχεται live σύνδεση μόνο από τη δική του σελίδα. Άνοιξε τη σελίδα παρακολούθησης του Anube και πάτα τον σελιδοδείκτη <b>TC</b>. Οδηγίες: <a href="install.html" style="color:inherit">εγκατάσταση σελιδοδείκτη</a>.</div>` + h;
-  h += `<p class="note">Το Anube δεν δίνει την ώρα περάσματος, μόνο ότι πέρασε. Η ώρα βγαίνει από την άφιξη του μηνύματος μείον την καθυστέρηση δικτύου του κάθε πληρώματος, οπότε μέτρα ±10–20 m και απόκλιση ±0,5–1″ είναι φυσιολογικά. Τα περάσματα καταγράφονται μόνο όσο η σελίδα είναι ανοιχτή.</p>`;
+  h += `<p class="note">Πώς: το κοκκίνισμα του Anube έρχεται ~12″ μετά το πέρασμα. Η θέση κάθε TC βγαίνει από το GPS των αυτοκινήτων λίγο πριν το κοκκίνισμα, και ο χρόνος περάσματος από το πότε το GPS του καθενός πέρασε από εκεί. Στη T11 έπεσε ~20 m και ~0,5″ μέσα. Καταγράφει μόνο όσο η σελίδα είναι ανοιχτή.</p>`;
   out.innerHTML = h;
 }
 
@@ -454,6 +584,8 @@ root.querySelector(".tabs").addEventListener("click", (e) => { const b = e.targe
 out.addEventListener("click", (e) => {
   const st = e.target.closest("[data-stage]");
   if (st){ store.set("tcStage_" + num, st.dataset.stage); if (st.dataset.stage === "auto") autoStage = null; render(); return; }
+  const g = e.target.closest("[data-gps]");
+  if (g){ e.preventDefault(); setGps(g.dataset.gps === "1"); updateLive(); return; }
   const m = e.target.closest("[data-me]");
   if (m){ const d = m.dataset.me; store.set(meKey(), meDorsal() === d ? "" : d); renderCrews(); }
 });
@@ -491,9 +623,14 @@ if (INJECTED){
   $("#fab").onclick = () => { app.hidden = false; $("#fab").hidden = true; render(); };
 }
 rallyEl.value = startNum;
+if (gpsOn) setGps(true);
+setInterval(() => { if (tab === "tc" && gpsOn) updateLive(); }, 3000);
 if (startNum) connect(startNum); else render();
 
 // Για δοκιμές: tcReplay([{a, section, participant, control_point}, ...]) ξαναπαίζει καταγραφή
-window.tcReplay = (log, delay = 3) => { log.forEach(x => { if (x.section) { lat[x.participant] = [delay]; onEvent("setscoring", x, x.a); } }); render(); };
+// Για δοκιμές: tcFeed(type, data, arrival) ταΐζει μηνύματα σαν να ήρθαν από το Anube
+window.tcFeed = (type, d, a) => onEvent(type, d, a);
+window.tcCompute = (sec) => compute(sec);
+window.tcSet = (k, v) => { if (k === "rally") num = v; };
 
 })();
