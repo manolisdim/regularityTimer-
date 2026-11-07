@@ -1,0 +1,27 @@
+name: TC recorder
+# Καταγραφέας για το TC Finder: τρέχει την κανονική σελίδα του Anube σε headless Chrome
+# και ανεβάζει τις θέσεις TC / χρόνους στο Firebase. Ξεκινά με το χέρι (Run workflow) ή με το πρόγραμμα.
+on:
+  workflow_dispatch:
+    inputs:
+      rally: { description: "Αριθμός αγώνα στο Anube", default: "9274" }
+      minutes: { description: "Πόσα λεπτά να τρέξει (μέχρι 345)", default: "330" }
+  schedule:
+    - cron: "30 7 8 11 *"   # Κυρ 08/11 09:30 ώρα Ελλάδας — 2η μέρα Δαναών
+  push:
+    branches: [recorder-test]
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+        working-directory: recorder
+      - run: node rec.js
+        working-directory: recorder
+        env:
+          RALLY: ${{ github.event.inputs.rally || '9274' }}
+          MINUTES: ${{ github.event_name == 'push' && '4' || github.event.inputs.minutes || '330' }}
