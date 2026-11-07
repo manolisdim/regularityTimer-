@@ -631,6 +631,6 @@ if (startNum) connect(startNum); else render();
 // Για δοκιμές: tcFeed(type, data, arrival) ταΐζει μηνύματα σαν να ήρθαν από το Anube
 window.tcFeed = (type, d, a) => onEvent(type, d, a);
 window.tcCompute = (sec) => compute(sec);
-window.tcSet = (k, v) => { if (k === "rally") num = v; };
+window.tcOpen = (id) => { if (secById[id]) secById[id].closed = false; };
 
 })();
