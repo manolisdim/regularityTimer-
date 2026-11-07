@@ -1108,6 +1108,13 @@ if(S.preset!==OFFICIAL.id){const at=(hm)=>{const [H,M]=hm.split(':').map(Number)
   S.stages=OFFICIAL.ss.map(x=>({id:'ss'+x.n,name:'ΕΔ'+x.n+' · '+x.nm,start:null,auto:true,win:[at(x.o),at(x.c)],avg:x.v,mode:'points',segs:[],
     points:x.p.map(q=>({m:q[0],s:q[1],c:0})),pass:[],idx:0,rb:{sec:x.sec,off:+x.off||0}}));
   const t=Date.now(),nx=S.stages.find(s=>t<s.win[1])||S.stages[S.stages.length-1];S.active=nx.id;S.preset=OFFICIAL.id;save();}
+/* 20ο Ράλλυ Δαναών 2026 (07/11): RT1–RT5 ΜΩΤ από το road book (κουτάκια Speed / meters, τέλος στο END RT).
+   Μπαίνουν δίπλα στις δικές σου ειδικές· φεύγουν μόνο οι παλιές του 24ωρου. Ώρα εκκίνησης: χειροκίνητα. */
+const RALLY2={id:'danaon2026-v1',ss:[{"id": "rt1", "nm": "RT1 · Αρχ. Νεμέα", "segs": [{"to": 2450, "v": 40}, {"to": 5248, "v": 46}, {"to": 6960, "v": 40}]}, {"id": "rt2", "nm": "RT2 · Πλατάνι", "segs": [{"to": 1285, "v": 40}, {"to": 5631, "v": 45}, {"to": 6053, "v": 30}, {"to": 7146, "v": 45}, {"to": 7325, "v": 30}, {"to": 12640, "v": 47}]}, {"id": "rt3", "nm": "RT3 · Κανδήλα", "segs": [{"to": 2530, "v": 49}, {"to": 2864, "v": 30}, {"to": 4742, "v": 49}, {"to": 5489, "v": 40}, {"to": 5676, "v": 20}, {"to": 6192, "v": 40}, {"to": 7779, "v": 49}, {"to": 8109, "v": 40}, {"to": 8658, "v": 49}, {"to": 9116, "v": 40}, {"to": 10580, "v": 50}]}, {"id": "rt4", "nm": "RT4 · Καμένιτσα", "segs": [{"to": 6425, "v": 49}, {"to": 6948, "v": 30}, {"to": 7610, "v": 47}, {"to": 8382, "v": 30}, {"to": 9955, "v": 47}, {"to": 11088, "v": 30}, {"to": 16090, "v": 47}]}, {"id": "rt5", "nm": "RT5 · Δρακοβούνι", "segs": [{"to": 2387, "v": 45}, {"to": 5947, "v": 43}, {"to": 6871, "v": 25}, {"to": 8644, "v": 45}, {"to": 9210, "v": 42}, {"to": 10180, "v": 25}, {"to": 19630, "v": 42}]}]};
+if(S.preset2!==RALLY2.id){const ids=new Set(RALLY2.ss.map(x=>x.id));
+  S.stages=S.stages.filter(s=>!/^ss\d+$/.test(s.id)&&!ids.has(s.id)).concat(RALLY2.ss.map(x=>({id:x.id,name:x.nm,start:null,mode:'segs',segs:x.segs,points:[],pass:[],idx:0,rb:{sec:-1,off:0}})));
+  S.active='rt1';S.preset2=RALLY2.id;save();}
+
 // a new road book replaces the old ones: edits and stage links by section index no longer apply
 BOOK.forEach((sec,i)=>sec.rows.forEach((r,j)=>{r._o={total:r.total,partial:r.partial};const e=S.rbEdits[i+':'+j];if(e){r.total=e.total;r.partial=e.partial;}}));
 /* ---------- roadbook viewer: whole book, a book section, or one stage ---------- */
@@ -1576,7 +1583,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
 })();
 </script>
 <script>
-window.APP_VER='v35 · 06/11 · ◀ ▶ αλλάζουν μόνο ποια τουλίπα φαίνεται, η απόσταση = km τουλίπας − μέτρα';
+window.APP_VER='v36 · 07/11 · Ράλλυ Δαναών: RT1–RT5 ΜΩΤ';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
