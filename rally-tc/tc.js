@@ -308,10 +308,14 @@ const FB = "https://rally-tc-default-rtdb.europe-west1.firebasedatabase.app";
 const fbUrl = () => `${FB}/tc/${num}.json`;
 let remote = null, ghLast = "", ghErr = "", ghOkAt = 0;
 const isRecorder = () => store.get("tcRecorder", "0") === "1";
+const sumCache = {};
 function summary(){
-  const o = { v: 1, t: Math.round(Date.now() / 1000), s: {} };
+  const o = { v: 1, t: Math.round(Date.now() / 1000), s: {} }, now = Date.now() / 1000;
   Object.keys(ev).forEach(secId => {
     if (!secById[secId]) return;
+    // ειδική χωρίς περάσματα τα τελευταία 30′: κρατάμε τη σύνοψη όπως ήταν (οι παλιές θέσεις GPS σβήνονται με τον καιρό)
+    const lastA = Math.max(0, ...Object.values(ev[secId]).flatMap(r => Object.values(r)));
+    if (sumCache[secId] && now - lastA > 1800){ o.s[secId] = sumCache[secId]; return; }
     const rows = cleanRows(secId), L = locate(secId, rows), x = { st: {}, tc: {}, el: {} };
     Object.keys(rows).forEach(pid => { if (rows[pid].start != null) x.st[pid] = rows[pid].start; });
     Object.keys(L).forEach(k => {
@@ -321,7 +325,7 @@ function summary(){
     });
     const tr = refTrack(secId, { rows });
     if (tr) x.trk = tr.pts.map(q => [+q[0].toFixed(6), +q[1].toFixed(6)]);
-    o.s[secId] = x;
+    o.s[secId] = x; sumCache[secId] = x;
   });
   return o;
 }
@@ -500,7 +504,7 @@ function savePos(){
   // κρατάμε την τελευταία 1 ώρα θέσεων (για να αντέξει ανανέωση της σελίδας)
   // στη μνήμη κρατάμε 4 ώρες, στη συσκευή τις τελευταίες 1,5 ώρα (όριο χώρου)
   const now = Date.now() / 1000, o = {};
-  Object.keys(pos).forEach(p => { pos[p] = pos[p].filter(q => q[0] >= now - 4 * 3600); const a = pos[p].filter(q => q[0] >= now - 5400); if (a.length) o[p] = a; });
+  Object.keys(pos).forEach(p => { if (!window.tcNoTrim) pos[p] = pos[p].filter(q => q[0] >= now - 4 * 3600); const a = pos[p].filter(q => q[0] >= now - 5400); if (a.length) o[p] = a; });
   try { localStorage.setItem(posKey(), JSON.stringify(o)); } catch(e){ try { localStorage.removeItem(posKey()); } catch(e2){} }
 }
 function onEvent(type, d, now){
