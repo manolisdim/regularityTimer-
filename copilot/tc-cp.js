@@ -13,6 +13,7 @@ const LS = { get(k, d){ try { const v = localStorage.getItem(k); return v == nul
 const on = () => LS.get("cpTc", "0") === "1";
 const rally = () => String(LS.get("cpTcRally", "9274")).replace(/\D/g, "");
 const meDorsal = () => String(LS.get("cpTcMe", "6")).trim();
+const manual = () => String(LS.get("cpTcCrews", "")).split(/[^0-9]+/).filter(Boolean);
 const TOL = 1.5, UNSURE = 80;
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmtM = (m) => Math.round(m).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " m";
@@ -21,9 +22,9 @@ const median = (a) => { const s = [...a].sort((x, y) => x - y), n = s.length; re
 const RAD = Math.PI / 180, RE = 6371000;
 const hv = (a, b) => { const p1 = a[0] * RAD, p2 = b[0] * RAD, dp = p2 - p1, dl = (b[1] - a[1]) * RAD; return 2 * RE * Math.asin(Math.sqrt(Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2)); };
 
-let data = null, secs = null, d2p = null, lastFetch = 0, err = "";
+let data = null, secs = null, d2p = null, lastFetch = 0, err = "", top = null, off = null;
 function cacheKey(k){ return "cpTc_" + k + "_" + rally(); }
-function loadCache(){ data = LS.json(cacheKey("fb"), null); secs = LS.json(cacheKey("secs"), null); d2p = LS.json(cacheKey("d2p"), null); }
+function loadCache(){ data = LS.json(cacheKey("fb"), null); secs = LS.json(cacheKey("secs"), null); d2p = LS.json(cacheKey("d2p"), null); top = LS.json(cacheKey("top"), null); }
 
 async function fetchAll(){
   if (!on() || navigator.onLine === false) return;
@@ -40,6 +41,22 @@ async function fetchAll(){
       d2p = {}; ((P.event && P.event.data && P.event.data.participants) || []).forEach(p => { d2p[String(p.dorsal)] = String(p.participant); });
       LS.set(cacheKey("d2p"), JSON.stringify(d2p));
     }
+    // οι «καλοί»: οι 10 πρώτοι της γενικής κατάταξης μέχρι τώρα
+    try {
+      const C = await fetch(REST + "classification/" + r + ".json?rally=rally" + r + "&port=auto").then(x => x.json());
+      const cl = ((C.event && C.event.data && C.event.data.classification) || []).filter(c => !c.dnq && c.puesto).sort((a, b) => a.puesto - b.puesto);
+      if (cl.length){ top = cl.map(c => String(c.participant)); LS.set(cacheKey("top"), JSON.stringify(top)); }
+    } catch(e){}
+    // επίσημα δευτερόλεπτα (μόνο σε ειδικές που δεν είναι κρυφές)
+    try {
+      const T = await fetch(REST + "total_scoring/" + r + ".json?rally=rally" + r + "&port=auto").then(x => x.json());
+      const o = {};
+      ((T.event && T.event.data && T.event.data.total_scoring) || []).forEach(row => {
+        const sv = String(row.seconds || "").split(",");
+        sv.forEach((v, i) => { const f = parseFloat(v); if (i > 0 && v.trim() !== "" && !isNaN(f)) ((o[row.section] = o[row.section] || {})[row.participant] = o[row.section][row.participant] || {})[i] = f; });
+      });
+      off = o;
+    } catch(e){}
     const j = await fetch(FB + "/tc/" + r + ".json?t=" + Date.now(), { cache: "no-store" }).then(x => x.json());
     if (j && j.s){ data = j; LS.set(cacheKey("fb"), JSON.stringify(j)); }
     err = "";
@@ -81,13 +98,23 @@ function compute(){
   const keys = Object.keys(tcArr).filter(k => tcArr[k]).map(Number).sort((a, b) => a - b);
   const tcs = keys.map(k => {
     const t = tcArr[k], el = elArr[k] || {};
-    const others = Object.keys(el).filter(p => p !== mePid).map(p => +el[p]);
+    // ποιοι μετράνε: όσοι έγραψες στις Ρυθμίσεις, αλλιώς οι 10 πρώτοι της γενικής, αλλιώς όλοι
+    const man = manual().map(d => d2p && d2p[d]).filter(Boolean);
+    const good = man.length ? new Set(man) : top ? new Set(top.filter(p => p !== mePid).slice(0, 10)) : null;
+    let pool = Object.keys(el).filter(p => p !== mePid && (!good || good.has(p)));
+    if (pool.length < 2) pool = Object.keys(el).filter(p => p !== mePid);
+    // ειδική με φανερά δευτερόλεπτα: ιδανικός χρόνος = χρόνος GPS − επίσημη απόκλιση (σχεδόν ακριβής)
+    const so = off && off[sec];
+    const exact = so ? Object.keys(el).filter(p => so[p] && so[p][k] != null).map(p => +el[p] - so[p][k]) : [];
+    const others = pool.map(p => +el[p]);
     let kept = others;
     for (let i = 0; i < 2 && kept.length >= 2; i++){ const m = median(kept); const nk = others.filter(v => Math.abs(v - m) <= TOL); if (nk.length) kept = nk; }
-    const mean = kept.length ? kept.reduce((a, b) => a + b, 0) / kept.length : null;
+    let mean = kept.length ? kept.reduce((a, b) => a + b, 0) / kept.length : null;
+    if (exact.length >= 2) mean = median(exact);
     const dist = mean != null && P.length > 1 ? A.idealDistAt(P, mean) : null;
     const mine = mePid && el[mePid] != null ? +el[mePid] : null;
-    return { k, loc: [t[0], t[1]], spread: t[2], n: t[3], mean, dist, dev: mine != null && mean != null ? mine - mean : null, unsure: t[2] > UNSURE };
+    const offMine = so && mePid && so[mePid] ? so[mePid][k] : null;
+    return { k, loc: [t[0], t[1]], spread: t[2], n: t[3], mean, dist, exact: exact.length >= 2, dev: offMine != null ? offMine : mine != null && mean != null ? mine - mean : null, official: offMine != null, unsure: t[2] > UNSURE };
   });
   return { st, sec, tcs, trk: x.trk || null, A };
 }
@@ -129,7 +156,7 @@ function render(){
     // απόκλιση στα TC που πέρασες
     const devs = r.tcs.filter(t => t.dev != null);
     const last = devs[devs.length - 1];
-    const dv = (t) => `<span style="color:${Math.abs(t.dev) < 0.3 ? "var(--good,#4fd17f)" : t.dev > 0 ? "#e8322c" : "#5aa9ff"}">${t.dev > 0 ? "+" : t.dev < 0 ? "−" : ""}${fmtS(t.dev)}″</span>`;
+    const dv = (t) => `<span style="color:${Math.abs(t.dev) < 0.3 ? "var(--good,#4fd17f)" : t.dev > 0 ? "#e8322c" : "#5aa9ff"}">${t.dev > 0 ? "+" : t.dev < 0 ? "−" : ""}${fmtS(t.dev)}″${t.official ? "✓" : ""}</span>`;
     const land = window.innerWidth > window.innerHeight;
     const head = `<span style="font-size:13px;color:var(--muted);letter-spacing:.06em">TC · ANUBE${data && data.t ? " " + new Date(data.t * 1000).toLocaleTimeString("el-GR", {hour:"2-digit", minute:"2-digit", hour12:false}) : ""}${err ? " ⚠︎" : ""}</span>`;
     const lastTxt = last ? `TC${last.k} ${dv(last)}` : "";
@@ -162,11 +189,13 @@ function settings(){
         <div class="field" style="width:150px"><label for="tcRally">Αγώνας Anube</label><input id="tcRally" class="num" inputmode="numeric" value="${esc(rally())}"></div>
         <div class="field" style="width:150px"><label for="tcMe">Ο αριθμός μου</label><input id="tcMe" class="num" inputmode="numeric" value="${esc(meDorsal())}"></div>
       </div>
+      <div class="field"><label for="tcCrews">Πληρώματα που μετράνε (κενό = οι 10 πρώτοι της γενικής)</label><input id="tcCrews" class="num" inputmode="text" placeholder="π.χ. 1, 2, 4, 9" value="${esc(LS.get("cpTcCrews", ""))}"></div>
       <p class="note">Οι ειδικές RT12, RT13… αντιστοιχούν αυτόματα στις T12, T13… του Anube.</p>`;
     stack.insertBefore(d, stack.children[1] || null);
     document.getElementById("tcOn").onchange = (e) => { LS.set("cpTc", e.target.checked ? "1" : "0"); if (e.target.checked) fetchAll().then(render); render(); };
-    document.getElementById("tcRally").onchange = (e) => { LS.set("cpTcRally", e.target.value.replace(/\D/g, "")); secs = null; d2p = null; data = null; loadCache(); fetchAll().then(render); };
+    document.getElementById("tcRally").onchange = (e) => { LS.set("cpTcRally", e.target.value.replace(/\D/g, "")); secs = null; d2p = null; data = null; top = null; off = null; loadCache(); fetchAll().then(render); };
     document.getElementById("tcMe").onchange = (e) => { LS.set("cpTcMe", e.target.value.trim()); render(); };
+    document.getElementById("tcCrews").onchange = (e) => { LS.set("cpTcCrews", e.target.value.trim()); render(); };
   } catch(e){}
 }
 
@@ -178,6 +207,6 @@ try {
   window.addEventListener("online", () => { if (on()) fetchAll().then(render); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && on()) fetchAll().then(render); });
   if (on()) fetchAll().then(render);
-  window.cpTcDebug = { compute, fetchAll, get data(){ return data; } };
+  window.cpTcDebug = { compute, fetchAll, get data(){ return data; }, get top(){ return top; }, get off(){ return off; } };
 } catch(e){}
 })();
