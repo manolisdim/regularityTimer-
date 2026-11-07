@@ -10,6 +10,8 @@ on:
     - cron: "30 7 8 11 *"   # Κυρ 08/11 09:30 ώρα Ελλάδας — 2η μέρα Δαναών
   push:
     branches: [recorder-test]
+permissions:
+  contents: write
 jobs:
   record:
     runs-on: ubuntu-latest
@@ -32,3 +34,20 @@ jobs:
           name: anube-${{ github.event.inputs.rally || '9274' }}-${{ github.run_id }}
           path: recorder/data/
           retention-days: 90
+      # αντίγραφο και σε ξεχωριστό branch (anube-data), για να το διαβάζει εύκολα η ανάλυση
+      - name: Save data to the anube-data branch
+        if: always()
+        run: |
+          set -e
+          D=$(date -u +%Y%m%d-%H%M)
+          mkdir -p /tmp/out/${{ github.event.inputs.rally || '9274' }}/$D
+          cp -r recorder/data/. /tmp/out/${{ github.event.inputs.rally || '9274' }}/$D/ || true
+          gzip -f /tmp/out/*/*/raw.jsonl || true
+          git config user.name "tc-recorder"; git config user.email "tc-recorder@users.noreply.github.com"
+          git fetch origin anube-data || true
+          if git rev-parse --verify origin/anube-data >/dev/null 2>&1; then git checkout -B anube-data origin/anube-data; else git checkout --orphan anube-data; git rm -rf . >/dev/null 2>&1 || true; fi
+          cp -r /tmp/out/. .
+          git add -A . ':!recorder' ':!rally-tc' ':!copilot' 2>/dev/null || git add -A .
+          git commit -m "Anube data ${{ github.run_id }}" || true
+          git push origin anube-data
+
