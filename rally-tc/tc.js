@@ -31,6 +31,7 @@ root.innerHTML = `<style>
 .status{margin-left:auto;font-size:12px;color:var(--muted);text-align:right}
 .status.err{color:var(--accent)}
 .status.ok::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-right:5px;vertical-align:1px}
+form[hidden]{display:none!important}
 form{display:grid;grid-template-columns:1fr 48px;gap:6px}
 input,select,textarea{width:100%;min-width:0;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;font:600 18px var(--body)}
 input{height:48px;padding:0 12px}
@@ -105,6 +106,8 @@ h2 small{font:500 13px var(--body);letter-spacing:0;text-transform:none;color:va
 </div>
 <main id="out"></main></div><button type="button" class="fab" id="fab" hidden>TC</button>`;
 const app = root.getElementById("app");
+// Η σελίδα του Anube πιάνει αγγίγματα και πλήκτρα (χάρτης): δεν τα αφήνουμε να φτάσουν εκεί
+["touchstart","touchmove","touchend","pointerdown","pointerup","mousedown","mouseup","click","keydown","keyup","keypress","wheel"].forEach(t => host.addEventListener(t, e => e.stopPropagation()));
 
 "use strict";
 // ---------------------------------------------------------------------------
@@ -328,7 +331,7 @@ let autoStage = null;
 function setStatus(msg, err){
   if (msg){ statusEl.className = "status" + (err ? " err" : ""); statusEl.textContent = msg; return; }
   if (!num){ statusEl.textContent = ""; return; }
-  if (wsOk){ statusEl.className = "status ok"; statusEl.textContent = "Live · καθυστ. " + (latAll.length ? fmtS(median(latAll)) + "″" : "–"); }
+  if (wsOk){ statusEl.className = "status ok"; statusEl.textContent = (INJECTED ? "#" + num + " · " : "") + "Live · καθυστ. " + (latAll.length ? fmtS(median(latAll)) + "″" : "–"); }
   else { statusEl.className = "status err"; statusEl.textContent = navigator.onLine === false ? "Χωρίς internet" : "Επανασύνδεση…"; }
 }
 setInterval(() => setStatus(), 5000);
@@ -479,9 +482,11 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && nu
 if (!INJECTED && "serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 
 const qs = new URLSearchParams(location.search);
-const startNum = (qs.get("rally") || store.get("tcRally", "")).replace(/\D/g, "");
+const pageRally = INJECTED ? ((location.href.match(/rally=?rally(\d+)/) || location.href.match(/rally(\d+)/) || [])[1] || "") : "";
+const startNum = (pageRally || qs.get("rally") || store.get("tcRally", "")).replace(/\D/g, "");
 if (INJECTED){
   $("#hide").hidden = false;
+  if (startNum) $("#f").hidden = true;   // ο αγώνας βγαίνει από τη σελίδα του Anube
   $("#hide").onclick = () => { app.hidden = true; $("#fab").hidden = false; };
   $("#fab").onclick = () => { app.hidden = false; $("#fab").hidden = true; render(); };
 }
