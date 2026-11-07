@@ -414,9 +414,9 @@ function closeWs(){ clearTimeout(wsTimer); if (ws){ ws.onclose = null; try { ws.
 let saveT = null, posSaveT = null;
 function savePos(){
   // κρατάμε την τελευταία 1 ώρα θέσεων (για να αντέξει ανανέωση της σελίδας)
-  const lim = Date.now() / 1000 - 3600, o = {};
-  Object.keys(pos).forEach(p => { const a = pos[p].filter(q => q[0] >= lim); if (a.length) o[p] = a; });
-  pos = o;
+  // στη μνήμη κρατάμε 4 ώρες, στη συσκευή τις τελευταίες 1,5 ώρα (όριο χώρου)
+  const now = Date.now() / 1000, o = {};
+  Object.keys(pos).forEach(p => { pos[p] = pos[p].filter(q => q[0] >= now - 4 * 3600); const a = pos[p].filter(q => q[0] >= now - 5400); if (a.length) o[p] = a; });
   try { localStorage.setItem(posKey(), JSON.stringify(o)); } catch(e){ try { localStorage.removeItem(posKey()); } catch(e2){} }
 }
 function onEvent(type, d, now){
