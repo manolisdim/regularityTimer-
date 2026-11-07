@@ -129,7 +129,7 @@ function render(){
     const devs = r.tcs.filter(t => t.dev != null);
     const last = devs[devs.length - 1];
     const dv = (t) => `<span style="color:${Math.abs(t.dev) < 0.3 ? "var(--good,#4fd17f)" : t.dev > 0 ? "#e8322c" : "#5aa9ff"}">${t.dev > 0 ? "+" : t.dev < 0 ? "−" : ""}${fmtS(t.dev)}″</span>`;
-    c.innerHTML = `<div class="label" style="display:flex;justify-content:space-between"><span>TC · Anube</span><span>${data && data.t ? new Date(data.t * 1000).toLocaleTimeString("el-GR", {hour:"2-digit", minute:"2-digit"}) : ""}${err ? " · ⚠︎" : ""}</span></div>`
+    c.innerHTML = `<div class="label" style="display:flex;justify-content:space-between"><span>TC · Anube</span><span>${data && data.t ? new Date(data.t * 1000).toLocaleTimeString("el-GR", {hour:"2-digit", minute:"2-digit", hour12:false}) : ""}${err ? " · ⚠︎" : ""}</span></div>`
       + `<div style="font-size:26px;line-height:1.2;margin-top:4px">${main}</div>`
       + (gpsTxt || next ? `<div style="color:var(--muted);font-size:16px;margin-top:2px">${gpsTxt}${gpsTxt && next ? " · " : ""}${next ? "θέση ±" + Math.round(next.spread) + " m (" + next.n + " αυτ.)" : ""}${unsureAhead.length ? " · ⚠︎ " + unsureAhead.join(", ") + " αβέβαιο" : ""}</div>` : "")
       + (last ? `<div style="font-size:20px;margin-top:6px">TC${last.k}: ${dv(last)} ${last.dev > 0.3 ? "αργά" : last.dev < -0.3 ? "νωρίς" : "στον χρόνο"}</div>`
