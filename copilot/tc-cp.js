@@ -95,12 +95,13 @@ function compute(){
 let card = null;
 function ensureCard(){
   if (card && document.body.contains(card)) return card;
+  // μια λωρίδα στην κορυφή της κάρτας με τις τουλίπες (κάθετο: κάτω από τα μέτρα, οριζόντιο: δεξιά πάνω)
   const host = document.getElementById("tulStack");
-  if (!host || !host.parentNode) return null;
+  if (!host) return null;
   card = document.createElement("div");
-  card.className = "card"; card.id = "tcCard";
-  card.style.cssText = "padding:12px 14px;border:2px solid var(--accent)";
-  host.parentNode.insertBefore(card, host);
+  card.id = "tcCard";
+  card.style.cssText = "flex:none;padding:8px 12px;border:2px solid var(--accent);border-radius:14px;line-height:1.2";
+  host.insertBefore(card, host.firstChild);
   return card;
 }
 
@@ -111,12 +112,12 @@ function render(){
     c.hidden = false;
     const r = compute();
     if (!r){ c.innerHTML = ""; return; }
-    if (r.msg){ c.innerHTML = `<div class="label">TC · Anube</div><div style="color:var(--muted);font-size:16px">${r.msg}${err ? " · " + err : ""}</div>`; return; }
+    if (r.msg){ c.innerHTML = `<div style="font-size:13px;color:var(--muted);letter-spacing:.06em">TC · ANUBE</div><div style="color:var(--muted);font-size:15px">${r.msg}${err ? " · " + err : ""}</div>`; return; }
     const m = r.A.meters();
     // επόμενο TC με τα μέτρα του co-driver
     const sure = r.tcs.filter(t => t.dist != null && !t.unsure);
     const next = sure.find(t => t.dist > m - 15);
-    let main = next ? `<b>TC${next.k}</b> σε <b>${fmtM(Math.max(0, next.dist - m))}</b> <span style="color:var(--muted);font-size:16px">· στα ${fmtM(next.dist)}</span>` : (r.tcs.length ? "Επόμενο TC: δεν το έχει περάσει κανείς ακόμα" : "Κανένα TC ακόμα");
+    let main = next ? `<b>TC${next.k}</b> σε <b>${fmtM(Math.max(0, next.dist - m))}</b> <span style="color:var(--muted);font-size:15px">στα ${fmtM(next.dist)}</span>` : (r.tcs.length ? "Επόμενο TC: δεν το έχει περάσει κανείς ακόμα" : "Κανένα TC ακόμα");
     // και με το GPS (απόσταση πάνω στη διαδρομή του πρώτου αυτοκινήτου)
     let gpsTxt = "";
     const g = r.A.gps && r.A.gps();
@@ -129,11 +130,13 @@ function render(){
     const devs = r.tcs.filter(t => t.dev != null);
     const last = devs[devs.length - 1];
     const dv = (t) => `<span style="color:${Math.abs(t.dev) < 0.3 ? "var(--good,#4fd17f)" : t.dev > 0 ? "#e8322c" : "#5aa9ff"}">${t.dev > 0 ? "+" : t.dev < 0 ? "−" : ""}${fmtS(t.dev)}″</span>`;
-    c.innerHTML = `<div class="label" style="display:flex;justify-content:space-between"><span>TC · Anube</span><span>${data && data.t ? new Date(data.t * 1000).toLocaleTimeString("el-GR", {hour:"2-digit", minute:"2-digit", hour12:false}) : ""}${err ? " · ⚠︎" : ""}</span></div>`
-      + `<div style="font-size:26px;line-height:1.2;margin-top:4px">${main}</div>`
-      + (gpsTxt || next ? `<div style="color:var(--muted);font-size:16px;margin-top:2px">${gpsTxt}${gpsTxt && next ? " · " : ""}${next ? "θέση ±" + Math.round(next.spread) + " m (" + next.n + " αυτ.)" : ""}${unsureAhead.length ? " · ⚠︎ " + unsureAhead.join(", ") + " αβέβαιο" : ""}</div>` : "")
-      + (last ? `<div style="font-size:20px;margin-top:6px">TC${last.k}: ${dv(last)} ${last.dev > 0.3 ? "αργά" : last.dev < -0.3 ? "νωρίς" : "στον χρόνο"}</div>`
-        + `<div style="color:var(--muted);font-size:15px;margin-top:2px">${devs.slice(-6).map(t => "TC" + t.k + " " + dv(t)).join(" · ")}</div>` : "");
+    const land = window.innerWidth > window.innerHeight;
+    const head = `<span style="font-size:13px;color:var(--muted);letter-spacing:.06em">TC · ANUBE${data && data.t ? " " + new Date(data.t * 1000).toLocaleTimeString("el-GR", {hour:"2-digit", minute:"2-digit", hour12:false}) : ""}${err ? " ⚠︎" : ""}</span>`;
+    const lastTxt = last ? `TC${last.k} ${dv(last)}` : "";
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">${head}<span style="font-size:${land ? 18 : 20}px">${lastTxt}</span></div>`
+      + `<div style="font-size:${land ? 22 : 24}px;margin-top:2px">${main}</div>`
+      + (gpsTxt || next || unsureAhead.length ? `<div style="color:var(--muted);font-size:15px;margin-top:2px">${[gpsTxt, next ? "θέση ±" + Math.round(next.spread) + " m (" + next.n + " αυτ.)" : "", unsureAhead.length ? "⚠︎ " + unsureAhead.join(", ") + " αβέβαιο" : ""].filter(Boolean).join(" · ")}</div>` : "")
+      + (devs.length > 1 && !land ? `<div style="color:var(--muted);font-size:14px;margin-top:2px">${devs.slice(-5).map(t => "TC" + t.k + " " + dv(t)).join(" · ")}</div>` : "");
   } catch(e){ try { if (card) card.innerHTML = '<div class="label">TC · Anube</div><div style="color:var(--muted)">σφάλμα: ' + esc(e.message) + "</div>"; } catch(x){} }
 }
 
