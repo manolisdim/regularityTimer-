@@ -234,16 +234,12 @@ function cleanRows(secId){
 }
 
 // ---------- Υπολογισμός για μία ειδική ----------
-function compute(secId){
-  const sec = secById[secId]; if (!sec) return null;
-  const segs = motTable()[sec.name] || null;
-  const en = enabled(), meP = mePid(), T = tol();
-  const rows = cleanRows(secId);
-  const nTc = sec.controls.length - 1;
-  const tcs = [];
+// Θέση κάθε TC και χρόνος κάθε πληρώματος από τα δικά μας δεδομένα (ό,τι είδε αυτή η συσκευή)
+function locate(secId, rows){
+  const sec = secById[secId], nTc = sec.controls.length - 1, outT = {};
   for (let k = 1; k <= nTc; k++){
-    // 1) Θέση του TC: πού ήταν κάθε αυτοκίνητο ~12″ πριν το κοκκίνισμα (μόνο αν κινούνταν)
-    let pts = [];
+    // 1) Θέση: πού ήταν κάθε αυτοκίνητο ~12″ πριν το κοκκίνισμα (μόνο αν κινούνταν)
+    const pts = [];
     Object.keys(rows).forEach(pid => {
       const a = rows[pid].a[k]; if (a == null) return;
       const p = posAt(pid, a - DELAY);
@@ -256,13 +252,36 @@ function compute(secId){
       spread = median(pts.map(p => hv(p, loc)));
     }
     // 2) Χρόνος από το ακαριαίο λεπτό μέχρι το πέρασμα, από το GPS του καθενός
-    const all = []; let mine = null;
+    const el = {};
     if (loc) Object.keys(rows).forEach(pid => {
       const r = rows[pid], a = r.a[k]; if (a == null || r.start == null) return;
       const cr = cross(pid, loc, a - 32, a - 3);
-      if (!cr || cr.d > 60) return;
+      if (cr && cr.d <= 60) el[pid] = +(cr.t - r.start).toFixed(2);
+    });
+    outT[k] = { loc, spread, n: pts.length, el };
+  }
+  return outT;
+}
+function compute(secId){
+  const sec = secById[secId]; if (!sec) return null;
+  const segs = motTable()[sec.name] || null;
+  const en = enabled(), meP = mePid(), T = tol();
+  const rows = cleanRows(secId);
+  const L = locate(secId, rows), rem = (remote && remote.s && remote.s[secId]) || null;
+  const nTc = sec.controls.length - 1;
+  const tcs = [];
+  for (let k = 1; k <= nTc; k++){
+    let { loc, spread, n, el } = L[k];
+    el = Object.assign({}, el);
+    // Συμπλήρωση από τον καταγραφέα (ό,τι χάθηκε όσο δεν είχαμε internet)
+    const rt = rem && rem.tc && rem.tc[k];
+    if (rt && (!loc || rt[3] > n)){ loc = [rt[0], rt[1]]; spread = rt[2]; n = rt[3]; }
+    const re = rem && rem.el && rem.el[k];
+    if (re) Object.keys(re).forEach(pid => { if (el[pid] == null) el[pid] = re[pid]; });
+    const all = []; let mine = null;
+    Object.keys(el).forEach(pid => {
       const p = parts[pid]; if (!p) return;
-      const x = { d: String(p.dorsal), e: cr.t - r.start };
+      const x = { d: String(p.dorsal), e: el[pid] };
       if (pid === meP) mine = x;
       else if (!en.size || en.has(x.d)) all.push(x);
     });
@@ -275,10 +294,71 @@ function compute(secId){
     }
     const mean = kept.length ? kept.reduce((s, x) => s + x.e, 0) / kept.length : null;
     const dist = mean != null && segs ? distAt(segs, mean) : null;
-    tcs.push({ k, loc, n: pts.length, spread, all, kept, out: all.filter(x => !kept.includes(x)), mean, dist, mine, dev: mine && mean != null ? mine.e - mean : null });
+    tcs.push({ k, loc, n, spread, all, kept, out: all.filter(x => !kept.includes(x)), mean, dist, mine, dev: mine && mean != null ? mine.e - mean : null });
   }
-  return { sec, segs, tcs, rows, nCrews: Object.values(rows).filter(r => r.start != null).length };
+  const nLocal = Object.values(rows).filter(r => r.start != null).length;
+  return { sec, segs, tcs, rows, rem, nCrews: Math.max(nLocal, rem && rem.st ? Object.keys(rem.st).length : 0) };
 }
+
+// ---------- Καταγραφέας ↔ κινητό (μέσω GitHub) ----------
+// Μια συσκευή με σταθερό internet (π.χ. ο υπολογιστής) ανεβάζει κάθε 30″ μια σύνοψη:
+// θέσεις TC, χρόνους κάθε πληρώματος και τη διαδρομή του πρώτου αυτοκινήτου.
+// Το κινητό την κατεβάζει όταν έχει internet και συμπληρώνει ό,τι έχασε.
+const GH_REPO = "manolisdim/regularityTimer-", GH_BRANCH = "live-data";
+const ghPath = () => "live/" + num + ".json";
+let remote = null, ghSha = null, ghLast = "", ghErr = "";
+const ghToken = () => store.get("tcGhToken", "");
+function summary(){
+  const o = { v: 1, t: Math.round(Date.now() / 1000), s: {} };
+  Object.keys(ev).forEach(secId => {
+    if (!secById[secId]) return;
+    const rows = cleanRows(secId), L = locate(secId, rows), x = { st: {}, tc: {}, el: {} };
+    Object.keys(rows).forEach(pid => { if (rows[pid].start != null) x.st[pid] = rows[pid].start; });
+    Object.keys(L).forEach(k => {
+      const t = L[k];
+      if (t.loc) x.tc[k] = [+t.loc[0].toFixed(6), +t.loc[1].toFixed(6), Math.round(t.spread || 0), t.n];
+      if (Object.keys(t.el).length) x.el[k] = t.el;
+    });
+    const tr = refTrack(secId, { rows });
+    if (tr) x.trk = tr.pts.map(q => [+q[0].toFixed(6), +q[1].toFixed(6)]);
+    o.s[secId] = x;
+  });
+  return o;
+}
+const b64 = (str) => btoa(unescape(encodeURIComponent(str)));
+async function ghUpload(){
+  const tok = ghToken(); if (!tok || !num || !Object.keys(ev).length) return;
+  const body = JSON.stringify(summary());
+  if (body === ghLast) return;
+  const url = `https://api.github.com/repos/${GH_REPO}/contents/${ghPath()}`;
+  const H = { "Authorization": "Bearer " + tok, "Accept": "application/vnd.github+json" };
+  try {
+    if (!ghSha){ const g = await fetch(url + "?ref=" + GH_BRANCH, { headers: H, cache: "no-store" }); if (g.ok) ghSha = (await g.json()).sha; }
+    const r = await fetch(url, { method: "PUT", headers: H, body: JSON.stringify({ message: "TC live " + num, content: b64(body), branch: GH_BRANCH, sha: ghSha || undefined }) });
+    if (r.status === 409 || r.status === 422){ ghSha = null; return; }
+    if (!r.ok) throw new Error("GitHub " + r.status);
+    ghSha = (await r.json()).content.sha; ghLast = body; ghErr = "";
+  } catch(e){ ghErr = e.message; }
+}
+async function ghDownload(){
+  if (ghToken() || !num || navigator.onLine === false) return; // ο καταγραφέας δεν χρειάζεται να κατεβάζει
+  const urls = [
+    `https://api.github.com/repos/${GH_REPO}/contents/${ghPath()}?ref=${GH_BRANCH}&t=${Date.now()}`,
+    `https://raw.githubusercontent.com/${GH_REPO}/${GH_BRANCH}/${ghPath()}?t=${Date.now()}`
+  ];
+  for (const u of urls){
+    try {
+      const r = await fetch(u, { headers: u.includes("api.github") ? { "Accept": "application/vnd.github.raw" } : {}, cache: "no-store" });
+      if (!r.ok) continue;
+      const j = await r.json();
+      if (j && j.s && (!remote || j.t >= remote.t)){ remote = j; ref = null; store.set("tcRemote_" + num, JSON.stringify(j)); if (tab === "tc") render(); }
+      return;
+    } catch(e){}
+  }
+}
+setInterval(ghUpload, 30000);
+setInterval(ghDownload, 90000);
+window.addEventListener("online", () => setTimeout(ghDownload, 2000));
 
 // ---------- Μέτρα μέχρι το επόμενο TC με το GPS του κινητού ----------
 // Η απόσταση μετριέται πάνω στη διαδρομή ενός αυτοκινήτου που έχει ήδη περάσει (όχι σε ευθεία).
@@ -291,7 +371,16 @@ function refTrack(secId, r){
     const ks = Object.keys(x.a).map(Number); const kmax = Math.max(...ks);
     if (!best || kmax > best.kmax || (kmax === best.kmax && x.a[kmax] > best.t)) best = { pid, kmax, t: x.a[kmax], start: x.start };
   });
-  if (!best) return null;
+  const rt = r.rem && r.rem.trk;
+  if (!best || (rt && rt.length > pos[best.pid].filter(q => q[0] >= best.start - 5).length + 5)){
+    if (!rt || rt.length < 2) return null;
+    const key = secId + "/remote/" + rt.length;
+    if (ref && ref.key === key) return ref;
+    const pts = []; let sum = 0;
+    rt.forEach((q, i) => { if (i) sum += hv(rt[i - 1], q); pts.push([q[0], q[1], sum]); });
+    ref = { key, pts };
+    return ref;
+  }
   const key = secId + "/" + best.pid + "/" + pos[best.pid].length;
   if (ref && ref.key === key) return ref;
   const a = pos[best.pid].filter(q => q[0] >= best.start - 5);
@@ -372,6 +461,7 @@ async function connect(n){
   num = n; store.set("tcRally", n);
   ev = store.json(evKey(), {}); pos = store.json(posKey(), {});
   latAll = []; ref = null; stageSel = store.get("tcStage_" + n, null);
+  remote = store.json("tcRemote_" + n, null); ghSha = null; ghLast = "";
   closeWs();
   setStatus("Φόρτωση…");
   const cache = store.json("tcStruct_" + n, null);
@@ -385,6 +475,7 @@ async function connect(n){
   }
   openWs();
   render();
+  ghDownload();
 }
 function applyStruct(P, S){
   parts = {}; byDorsal = {};
@@ -402,7 +493,7 @@ function wsUrl(){
 function openWs(){
   const n = num;
   try { ws = new WebSocket(wsUrl()); } catch(e){ retryWs(n); return; }
-  ws.onopen = () => { wsOk = true; wsFails = 0; setStatus(); keepAwake(true); };
+  ws.onopen = () => { wsOk = true; wsFails = 0; ghDownload(); setStatus(); keepAwake(true); };
   ws.onclose = () => { wsOk = false; setStatus(); if (num === n) retryWs(n); };
   ws.onerror = () => {};
   ws.onmessage = (m) => {
@@ -560,10 +651,14 @@ function renderSet(){
     <textarea id="mot" spellcheck="false">${esc(JSON.stringify(mot, null, 0).replace(/\],"/g, '],\n"').replace(/^\{/, "{\n").replace(/\}$/, "\n}"))}</textarea>
     <p id="motMsg">${DEFAULTS[num] ? "Προεπιλογή: 20ο Ράλλυ Δαναών 2026 (T01–T18 = RT1–RT18)." : "Π.χ. {\"T01\":[[1500,43],[3780,50]]} = 0–1.500 m στα 43, 1.500–3.780 m στα 50."}</p>
     <div class="row"><button type="button" id="motSave">Αποθήκευση ΜΩΤ</button>${DEFAULTS[num] ? `<button type="button" id="motReset">Επαναφορά προεπιλογής</button>` : ""}</div>
+    <label for="ghtok">Καταγραφέας (μόνο στη συσκευή που μένει πάντα online)</label>
+    <input id="ghtok" type="password" autocomplete="off" placeholder="GitHub token" value="${ghToken() ? "••••••••" : ""}">
+    <p>${ghToken() ? (ghErr ? "⚠︎ " + esc(ghErr) : "Ενεργός: ανεβάζει κάθε 30″.") : "Άδειο = αυτή η συσκευή κατεβάζει τα δεδομένα του καταγραφέα όταν έχει internet."}${remote ? " · Τελευταία δεδομένα καταγραφέα: " + fmtClock(remote.t) : ""}</p>
     <label>Καταγεγραμμένα περάσματα</label>
     <p>${Object.keys(ev).map(s => secById[s] ? esc(secById[s].name) + ": " + Object.keys(ev[s]).length + " πληρ." : "").filter(Boolean).join(" · ") || "Κανένα ακόμα."}</p>
     <div class="row"><button type="button" id="exp">Εξαγωγή CSV</button><button type="button" id="clr">Διαγραφή περασμάτων</button></div>
   </div>`;
+  $("#ghtok").onchange = (e) => { const v = e.target.value.trim(); if (v && !/^•+$/.test(v)){ store.set("tcGhToken", v); ghSha = null; ghLast = ""; ghUpload().then(renderSet); } else if (!v){ try { localStorage.removeItem("tcGhToken"); } catch(x){} renderSet(); } };
   $("#tol").onchange = (e) => { store.set("tcTol", String(e.target.value).replace(",", ".")); };
   $("#motSave").onclick = () => {
     try { const v = JSON.parse($("#mot").value); store.set(motKey(), JSON.stringify(v)); $("#motMsg").textContent = "Αποθηκεύτηκε."; }
@@ -642,6 +737,8 @@ window.tcFeed = (type, d, a) => onEvent(type, d, a);
 window.tcCompute = (sec) => compute(sec);
 window.tcFix = (lat, lon) => { gpsOn = true; myFix = { lat, lon, acc: 5 }; tab = "tc"; render(); return root.getElementById("live").innerText; };
 window.tcOff = () => offv;
+window.tcSummary = () => summary();
+window.tcRemote = (j) => { remote = j; ref = null; render(); };
 window.tcOpen = (id) => { if (secById[id]) secById[id].closed = false; };
 
 })();

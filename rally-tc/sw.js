@@ -1,6 +1,6 @@
 // Regularity TC — κρατάει την εφαρμογή διαθέσιμη χωρίς internet.
 // Τα δεδομένα του αγώνα τα αποθηκεύει η ίδια η σελίδα. Εδώ κρατάμε μόνο τα αρχεία της εφαρμογής.
-const VERSION = "tc-v3";
+const VERSION = "tc-v4";
 const SHELL = ["./", "./index.html", "./tc.js", "./install.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
