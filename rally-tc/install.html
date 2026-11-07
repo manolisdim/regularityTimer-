@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TC — σελιδοδείκτης</title>
+<style>
+body{margin:0;background:#0e1013;color:#eceef2;font:16px/1.5 system-ui,-apple-system,sans-serif;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px 40px}
+main{max-width:620px;margin:0 auto}
+h1{font-size:22px;margin:0 0 6px}
+p,li{color:#c9ccd3}
+ol{padding-left:22px}
+li{margin:8px 0}
+textarea{width:100%;box-sizing:border-box;height:110px;background:#171a1f;color:#eceef2;border:1px solid #272b33;border-radius:10px;padding:10px;font:13px ui-monospace,Menlo,monospace}
+button,a.btn{display:inline-block;height:46px;line-height:46px;padding:0 18px;border:0;border-radius:10px;background:#e8322c;color:#fff;font-weight:700;font-size:15px;text-decoration:none;margin:8px 8px 0 0}
+a.bm{background:#f5c451;color:#15181d}
+small{color:#8a919e}
+</style>
+</head>
+<body>
+<main>
+<h1>Σελιδοδείκτης «TC»</h1>
+<p>Το Anube δίνει τα live περάσματα μόνο στη δική του σελίδα. Ο σελιδοδείκτης ανοίγει το TC μέσα στη σελίδα παρακολούθησης του Anube.</p>
+<textarea id="code" readonly></textarea>
+<button type="button" id="copy">Αντιγραφή</button>
+<a class="btn bm" id="drag" href="#">TC</a>
+<p><small>Σε υπολογιστή: σύρε το κίτρινο κουμπί «TC» στη γραμμή σελιδοδεικτών.</small></p>
+<h1 style="margin-top:22px">iPhone (Safari)</h1>
+<ol>
+<li>Πάτα <b>Αντιγραφή</b> παραπάνω.</li>
+<li>Πάτα το κουμπί κοινοποίησης <b>⬆︎</b> → <b>Προσθήκη σελιδοδείκτη</b> → όνομα <b>TC</b> → Αποθήκευση.</li>
+<li>Άνοιξε τους σελιδοδείκτες, πάτα <b>Επεξεργασία</b>, διάλεξε το <b>TC</b> και στη διεύθυνση σβήσε ό,τι έχει και κάνε <b>επικόλληση</b>.</li>
+<li>Άνοιξε τη σελίδα του αγώνα στο Anube (π.χ. <i>anubesport.com/tracking/?rally=rally9274&amp;port=auto</i>), γράψε <b>TC</b> στη γραμμή διευθύνσεων και πάτα τον σελιδοδείκτη <b>TC</b> από τη λίστα.</li>
+</ol>
+<p><small>Στο Android Chrome: ίδια διαδικασία, και για να τον τρέξεις γράφεις «TC» στη γραμμή διευθύνσεων και διαλέγεις τον σελιδοδείκτη.</small></p>
+</main>
+<script>
+const src = new URL("tc.js", location.href).href;
+const code = "javascript:(function(){var s=document.createElement('script');s.src='" + src + "?'+Date.now();document.body.appendChild(s);})();";
+document.getElementById("code").value = code;
+document.getElementById("drag").href = code;
+document.getElementById("copy").onclick = async () => {
+  const t = document.getElementById("code");
+  try { await navigator.clipboard.writeText(code); } catch(e){ t.select(); document.execCommand("copy"); }
+  document.getElementById("copy").textContent = "Αντιγράφηκε ✓";
+};
+</script>
+</body>
+</html>
