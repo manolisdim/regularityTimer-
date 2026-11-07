@@ -499,7 +499,7 @@ function renderTc(){
     const key = cur.section + "/" + t.k;
     const isFresh = fresh.has(key); fresh.delete(key);
     const last = t.k === r.tcs.length;
-    const info = `${t.kept.length} πληρ.${t.out.length ? " · " + t.out.length + " εκτός" : ""}${t.spread != null ? " · θέση ±" + Math.round(t.spread) + " m" : ""}`;
+    const info = `${t.kept.length} πληρ.${t.out.length ? " · " + t.out.length + " εκτός" : ""}${t.spread != null ? " · θέση ±" + Math.round(t.spread) + " m" + (t.spread > 80 ? " ⚠︎ αβέβαιο" : "") : ""}`;
     let main;
     if (!t.n) main = `<span class="m">—<small>κανένα πέρασμα ακόμα</small></span>`;
     else if (t.mean == null) main = `<span class="m">…<small>${t.n} πέρασμα(τα) · περιμένω GPS</small></span>`;
@@ -631,6 +631,7 @@ if (startNum) connect(startNum); else render();
 // Για δοκιμές: tcFeed(type, data, arrival) ταΐζει μηνύματα σαν να ήρθαν από το Anube
 window.tcFeed = (type, d, a) => onEvent(type, d, a);
 window.tcCompute = (sec) => compute(sec);
+window.tcFix = (lat, lon) => { gpsOn = true; myFix = { lat, lon, acc: 5 }; tab = "tc"; render(); return root.getElementById("live").innerText; };
 window.tcOpen = (id) => { if (secById[id]) secById[id].closed = false; };
 
 })();
