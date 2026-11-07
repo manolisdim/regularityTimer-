@@ -341,13 +341,17 @@ function liveHtml(){
       if (!pm || pm.d > 150) main = "Εκτός διαδρομής της ειδικής";
       else {
         mySPrev = pm.s;
-        const ahead = r.tcs.filter(t => t.loc).map(t => ({ t, s: project(trk.pts, t.loc, null) })).filter(x => x.s && x.s.d < 80 && x.s.s > pm.s - 5).sort((a, b) => a.s.s - b.s.s);
+        // τα αβέβαια TC (μεγάλη διασπορά, π.χ. εκεί που σταμάτησαν αυτοκίνητα) δεν μπαίνουν στη μέτρηση
+        const lastPassed = Math.max(0, ...r.tcs.filter(t => t.loc && t.spread <= 80).map(t => ({ t, s: project(trk.pts, t.loc, null) })).filter(x => x.s && x.s.d < 80 && x.s.s <= pm.s - 5).map(x => x.t.k));
+        const ahead = r.tcs.filter(t => t.loc && t.k > lastPassed && t.spread <= 80).map(t => ({ t, s: project(trk.pts, t.loc, null) })).filter(x => x.s && x.s.d < 80 && x.s.s > pm.s - 5).sort((a, b) => a.t.k - b.t.k);
+        const unsure = r.tcs.filter(t => t.k > lastPassed && t.n && t.spread > 80 && (!ahead[0] || t.k < ahead[0].t.k)).map(t => "TC" + t.k);
         if (!ahead.length) main = "Επόμενο TC: δεν το έχει περάσει κανείς ακόμα";
         else {
           const x = ahead[0], last = x.t.k === r.tcs.length;
           main = `<b>${last ? "ΤΕΛΟΣ" : "TC" + x.t.k}</b> σε <b>${fmtM(Math.max(0, x.s.s - pm.s))}</b>`;
           if (ahead[1]) sub = `μετά ${ahead[1].t.k === r.tcs.length ? "ΤΕΛΟΣ" : "TC" + ahead[1].t.k} σε ${fmtM(ahead[1].s.s - pm.s)} · `;
           sub += `θέση TC ±${Math.round(x.t.spread || 0)} m (${x.t.n} αυτ.)`;
+          if (unsure.length) sub += ` · ⚠︎ πριν από αυτό ${unsure.join(", ")} (αβέβαιη θέση)`;
         }
       }
     }
