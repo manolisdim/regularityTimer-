@@ -1581,11 +1581,11 @@ save();applyLayout();applyDay();showF();showOff();renderMarks();setupRb();applyS
 setInterval(liveSave,1000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')liveSave();});
 Sim.start();
 setInterval(()=>{render(false);renderCal();},100);
-window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt};
+window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt,act,meters,now,gps:()=>({last:G.last,age:performance.now()-G.fixAt,acc:G.acc})};
 })();
 </script>
 <script>
-window.APP_VER='v39 · 07/11 · Ράλλυ Δαναών: road book 293 τουλίπες + RT1–RT18';
+window.APP_VER='v40 · 07/11 · Ράλλυ Δαναών + TC από Anube (δοκιμαστικό, Ρυθμίσεις)';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
@@ -1596,3 +1596,4 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return;}const t=document.getElementById('toast');if(t){t.textContent='Νέα έκδοση διαθέσιμη · κλείσε και άνοιξε την εφαρμογή όταν σταματήσεις';t.hidden=false;setTimeout(()=>t.hidden=true,8000);}});
 }
 </script>
+<script src="tc-cp.js"></script>
