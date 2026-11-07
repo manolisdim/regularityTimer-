@@ -258,7 +258,7 @@ function compute(secId){
     const all = []; let mine = null;
     if (loc) Object.keys(rows).forEach(pid => {
       const r = rows[pid], a = r.a[k]; if (a == null || r.start == null) return;
-      const cr = cross(pid, loc, a - 90, a + 5);
+      const cr = cross(pid, loc, a - 32, a - 3);
       if (!cr || cr.d > 60) return;
       const p = parts[pid]; if (!p) return;
       const x = { d: String(p.dorsal), e: cr.t - r.start };
