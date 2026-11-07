@@ -133,7 +133,15 @@ function render(){
     const land = window.innerWidth > window.innerHeight;
     const head = `<span style="font-size:13px;color:var(--muted);letter-spacing:.06em">TC · ANUBE${data && data.t ? " " + new Date(data.t * 1000).toLocaleTimeString("el-GR", {hour:"2-digit", minute:"2-digit", hour12:false}) : ""}${err ? " ⚠︎" : ""}</span>`;
     const lastTxt = last ? `TC${last.k} ${dv(last)}` : "";
-    c.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">${head}<span style="font-size:${land ? 18 : 20}px">${lastTxt}</span></div>`
+    if (land){ // οριζόντιο: μία γραμμή, για να μη μικραίνει η τουλίπα
+      c.style.padding = "4px 10px";
+      c.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;white-space:nowrap;overflow:hidden">`
+        + `<span style="font-size:20px">${main.replace(/ <span style="color:var\(--muted\);font-size:15px">στα [^<]*<\/span>/, "")}${gpsTxt ? ` <span style="color:var(--muted);font-size:15px">· ${gpsTxt}</span>` : ""}${next && next.spread > 50 ? ` <span style="color:var(--muted);font-size:15px">±${Math.round(next.spread)} m</span>` : ""}</span>`
+        + `<span style="font-size:18px">${lastTxt}</span></div>`;
+      return;
+    }
+    c.style.padding = "8px 12px";
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">${head}<span style="font-size:20px">${lastTxt}</span></div>`
       + `<div style="font-size:${land ? 22 : 24}px;margin-top:2px">${main}</div>`
       + (gpsTxt || next || unsureAhead.length ? `<div style="color:var(--muted);font-size:15px;margin-top:2px">${[gpsTxt, next ? "θέση ±" + Math.round(next.spread) + " m (" + next.n + " αυτ.)" : "", unsureAhead.length ? "⚠︎ " + unsureAhead.join(", ") + " αβέβαιο" : ""].filter(Boolean).join(" · ")}</div>` : "")
       + (devs.length > 1 && !land ? `<div style="color:var(--muted);font-size:14px;margin-top:2px">${devs.slice(-5).map(t => "TC" + t.k + " " + dv(t)).join(" · ")}</div>` : "");
