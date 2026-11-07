@@ -329,14 +329,25 @@ function summary(){
   });
   return o;
 }
+// ανεβάζουμε μόνο τις ειδικές με περάσματα τα τελευταία 30′, μία μία, ώστε οι παλιές να μένουν όπως ήταν
+const upLast = {};
 async function ghUpload(){
   if (!isRecorder() || !num || !Object.keys(ev).length) return;
-  const sm = summary(); const body = JSON.stringify(sm);
-  if (body.replace(/"t":\d+,/, "") === ghLast) return;
+  const sm = summary(), now = Date.now() / 1000;
+  let any = false;
   try {
-    const r = await fetch(fbUrl(), { method: "PUT", body, headers: { "Content-Type": "application/json" } });
-    if (!r.ok) throw new Error("Firebase " + r.status);
-    ghLast = body.replace(/"t":\d+,/, ""); ghErr = ""; ghOkAt = Date.now();
+    for (const secId of Object.keys(sm.s)){
+      const lastA = Math.max(0, ...Object.values(ev[secId] || {}).flatMap(r => Object.values(r)));
+      if (now - lastA > 1800 && upLast[secId]) continue;
+      if (now - lastA > 1800 && !window.tcForceUp) continue;
+      const body = JSON.stringify(sm.s[secId]);
+      if (upLast[secId] === body) continue;
+      const r = await fetch(`${FB}/tc/${num}/s/${secId}.json`, { method: "PUT", body, headers: { "Content-Type": "application/json" } });
+      if (!r.ok) throw new Error("Firebase " + r.status);
+      upLast[secId] = body; any = true;
+    }
+    if (any){ await fetch(`${FB}/tc/${num}/t.json`, { method: "PUT", body: String(sm.t) }); await fetch(`${FB}/tc/${num}/v.json`, { method: "PUT", body: "1" }); ghOkAt = Date.now(); }
+    ghErr = "";
   } catch(e){ ghErr = e.message; }
 }
 async function ghDownload(){
@@ -650,7 +661,7 @@ function renderSet(){
     <p>${Object.keys(ev).map(s => secById[s] ? esc(secById[s].name) + ": " + Object.keys(ev[s]).length + " πληρ." : "").filter(Boolean).join(" · ") || "Κανένα ακόμα."}</p>
     <div class="row"><button type="button" id="exp">Εξαγωγή CSV</button><button type="button" id="clr">Διαγραφή περασμάτων</button></div>
   </div>`;
-  $("#rec").onchange = (e) => { store.set("tcRecorder", e.target.checked ? "1" : "0"); ghLast = ""; if (e.target.checked) ghUpload().then(renderSet); else renderSet(); };
+  $("#rec").onchange = (e) => { store.set("tcRecorder", e.target.checked ? "1" : "0"); if (e.target.checked) ghUpload().then(renderSet); else renderSet(); };
   $("#tol").onchange = (e) => { store.set("tcTol", String(e.target.value).replace(",", ".")); };
   $("#motSave").onclick = () => {
     try { const v = JSON.parse($("#mot").value); store.set(motKey(), JSON.stringify(v)); $("#motMsg").textContent = "Αποθηκεύτηκε."; }
