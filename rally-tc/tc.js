@@ -300,14 +300,14 @@ function compute(secId){
   return { sec, segs, tcs, rows, rem, nCrews: Math.max(nLocal, rem && rem.st ? Object.keys(rem.st).length : 0) };
 }
 
-// ---------- Καταγραφέας ↔ κινητό (μέσω GitHub) ----------
-// Μια συσκευή με σταθερό internet (π.χ. ο υπολογιστής) ανεβάζει κάθε 30″ μια σύνοψη:
+// ---------- Καταγραφέας ↔ κινητό (μέσω Firebase) ----------
+// Μια συσκευή με σταθερό internet (π.χ. ο υπολογιστής) είναι «καταγραφέας» και ανεβάζει κάθε 30″ μια σύνοψη:
 // θέσεις TC, χρόνους κάθε πληρώματος και τη διαδρομή του πρώτου αυτοκινήτου.
 // Το κινητό την κατεβάζει όταν έχει internet και συμπληρώνει ό,τι έχασε.
-const GH_REPO = "manolisdim/regularityTimer-", GH_BRANCH = "live-data";
-const ghPath = () => "live/" + num + ".json";
-let remote = null, ghSha = null, ghLast = "", ghErr = "";
-const ghToken = () => store.get("tcGhToken", "");
+const FB = "https://rally-tc-default-rtdb.europe-west1.firebasedatabase.app";
+const fbUrl = () => `${FB}/tc/${num}.json`;
+let remote = null, ghLast = "", ghErr = "", ghOkAt = 0;
+const isRecorder = () => store.get("tcRecorder", "0") === "1";
 function summary(){
   const o = { v: 1, t: Math.round(Date.now() / 1000), s: {} };
   Object.keys(ev).forEach(secId => {
@@ -325,39 +325,27 @@ function summary(){
   });
   return o;
 }
-const b64 = (str) => btoa(unescape(encodeURIComponent(str)));
 async function ghUpload(){
-  const tok = ghToken(); if (!tok || !num || !Object.keys(ev).length) return;
-  const body = JSON.stringify(summary());
-  if (body === ghLast) return;
-  const url = `https://api.github.com/repos/${GH_REPO}/contents/${ghPath()}`;
-  const H = { "Authorization": "Bearer " + tok, "Accept": "application/vnd.github+json" };
+  if (!isRecorder() || !num || !Object.keys(ev).length) return;
+  const sm = summary(); const body = JSON.stringify(sm);
+  if (body.replace(/"t":\d+,/, "") === ghLast) return;
   try {
-    if (!ghSha){ const g = await fetch(url + "?ref=" + GH_BRANCH, { headers: H, cache: "no-store" }); if (g.ok) ghSha = (await g.json()).sha; }
-    const r = await fetch(url, { method: "PUT", headers: H, body: JSON.stringify({ message: "TC live " + num, content: b64(body), branch: GH_BRANCH, sha: ghSha || undefined }) });
-    if (r.status === 409 || r.status === 422){ ghSha = null; return; }
-    if (!r.ok) throw new Error("GitHub " + r.status);
-    ghSha = (await r.json()).content.sha; ghLast = body; ghErr = "";
+    const r = await fetch(fbUrl(), { method: "PUT", body, headers: { "Content-Type": "application/json" } });
+    if (!r.ok) throw new Error("Firebase " + r.status);
+    ghLast = body.replace(/"t":\d+,/, ""); ghErr = ""; ghOkAt = Date.now();
   } catch(e){ ghErr = e.message; }
 }
 async function ghDownload(){
-  if (ghToken() || !num || navigator.onLine === false) return; // ο καταγραφέας δεν χρειάζεται να κατεβάζει
-  const urls = [
-    `https://api.github.com/repos/${GH_REPO}/contents/${ghPath()}?ref=${GH_BRANCH}&t=${Date.now()}`,
-    `https://raw.githubusercontent.com/${GH_REPO}/${GH_BRANCH}/${ghPath()}?t=${Date.now()}`
-  ];
-  for (const u of urls){
-    try {
-      const r = await fetch(u, { headers: u.includes("api.github") ? { "Accept": "application/vnd.github.raw" } : {}, cache: "no-store" });
-      if (!r.ok) continue;
-      const j = await r.json();
-      if (j && j.s && (!remote || j.t >= remote.t)){ remote = j; ref = null; store.set("tcRemote_" + num, JSON.stringify(j)); if (tab === "tc") render(); }
-      return;
-    } catch(e){}
-  }
+  if (isRecorder() || !num || navigator.onLine === false) return;
+  try {
+    const r = await fetch(fbUrl() + "?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return;
+    const j = await r.json();
+    if (j && j.s && (!remote || j.t >= remote.t)){ remote = j; ref = null; store.set("tcRemote_" + num, JSON.stringify(j)); if (tab === "tc") render(); }
+  } catch(e){}
 }
 setInterval(ghUpload, 30000);
-setInterval(ghDownload, 90000);
+setInterval(ghDownload, 60000);
 window.addEventListener("online", () => setTimeout(ghDownload, 2000));
 
 // ---------- Μέτρα μέχρι το επόμενο TC με το GPS του κινητού ----------
@@ -461,7 +449,7 @@ async function connect(n){
   num = n; store.set("tcRally", n);
   ev = store.json(evKey(), {}); pos = store.json(posKey(), {});
   latAll = []; ref = null; stageSel = store.get("tcStage_" + n, null);
-  remote = store.json("tcRemote_" + n, null); ghSha = null; ghLast = "";
+  remote = store.json("tcRemote_" + n, null); ghLast = "";
   closeWs();
   setStatus("Φόρτωση…");
   const cache = store.json("tcStruct_" + n, null);
@@ -651,14 +639,14 @@ function renderSet(){
     <textarea id="mot" spellcheck="false">${esc(JSON.stringify(mot, null, 0).replace(/\],"/g, '],\n"').replace(/^\{/, "{\n").replace(/\}$/, "\n}"))}</textarea>
     <p id="motMsg">${DEFAULTS[num] ? "Προεπιλογή: 20ο Ράλλυ Δαναών 2026 (T01–T18 = RT1–RT18)." : "Π.χ. {\"T01\":[[1500,43],[3780,50]]} = 0–1.500 m στα 43, 1.500–3.780 m στα 50."}</p>
     <div class="row"><button type="button" id="motSave">Αποθήκευση ΜΩΤ</button>${DEFAULTS[num] ? `<button type="button" id="motReset">Επαναφορά προεπιλογής</button>` : ""}</div>
-    <label for="ghtok">Καταγραφέας (μόνο στη συσκευή που μένει πάντα online)</label>
-    <input id="ghtok" type="password" autocomplete="off" placeholder="GitHub token" value="${ghToken() ? "••••••••" : ""}">
-    <p>${ghToken() ? (ghErr ? "⚠︎ " + esc(ghErr) : "Ενεργός: ανεβάζει κάθε 30″.") : "Άδειο = αυτή η συσκευή κατεβάζει τα δεδομένα του καταγραφέα όταν έχει internet."}${remote ? " · Τελευταία δεδομένα καταγραφέα: " + fmtClock(remote.t) : ""}</p>
+    <label for="rec">Καταγραφέας</label>
+    <p><label style="display:flex;align-items:center;gap:10px;margin:0;color:var(--fg);font-size:15px"><input id="rec" class="sw" type="checkbox" ${isRecorder() ? "checked" : ""}> Αυτή η συσκευή ανεβάζει τα δεδομένα</label></p>
+    <p>${isRecorder() ? (ghErr ? "⚠︎ " + esc(ghErr) : ghOkAt ? "Ενεργός · τελευταίο ανέβασμα " + fmtClock(ghOkAt / 1000) : "Ενεργός: ανεβάζει κάθε 30″ όταν υπάρχουν περάσματα.") : "Μόνο στη συσκευή που μένει πάντα online (π.χ. υπολογιστής). Οι υπόλοιπες κατεβάζουν από αυτή ό,τι έχασαν."}${remote ? " · Δεδομένα καταγραφέα: " + fmtClock(remote.t) : ""}</p>
     <label>Καταγεγραμμένα περάσματα</label>
     <p>${Object.keys(ev).map(s => secById[s] ? esc(secById[s].name) + ": " + Object.keys(ev[s]).length + " πληρ." : "").filter(Boolean).join(" · ") || "Κανένα ακόμα."}</p>
     <div class="row"><button type="button" id="exp">Εξαγωγή CSV</button><button type="button" id="clr">Διαγραφή περασμάτων</button></div>
   </div>`;
-  $("#ghtok").onchange = (e) => { const v = e.target.value.trim(); if (v && !/^•+$/.test(v)){ store.set("tcGhToken", v); ghSha = null; ghLast = ""; ghUpload().then(renderSet); } else if (!v){ try { localStorage.removeItem("tcGhToken"); } catch(x){} renderSet(); } };
+  $("#rec").onchange = (e) => { store.set("tcRecorder", e.target.checked ? "1" : "0"); ghLast = ""; if (e.target.checked) ghUpload().then(renderSet); else renderSet(); };
   $("#tol").onchange = (e) => { store.set("tcTol", String(e.target.value).replace(",", ".")); };
   $("#motSave").onclick = () => {
     try { const v = JSON.parse($("#mot").value); store.set(motKey(), JSON.stringify(v)); $("#motMsg").textContent = "Αποθηκεύτηκε."; }
