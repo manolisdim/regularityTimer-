@@ -1585,7 +1585,7 @@ window.RegApp={parseLine,parseSegs,parsePoints,pts,idealTimeAt,idealDistAt,act,m
 })();
 </script>
 <script>
-window.APP_VER='v50 · 08/11 · Ράλλυ Δαναών + TC από Anube (δοκιμαστικό, Ρυθμίσεις)';
+window.APP_VER='v51 · 08/11 · Ράλλυ Δαναών + TC από Anube (δοκιμαστικό, Ρυθμίσεις)';
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     // look for a new version whenever the app comes back to the screen
@@ -1596,4 +1596,4 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return;}const t=document.getElementById('toast');if(t){t.textContent='Νέα έκδοση διαθέσιμη · κλείσε και άνοιξε την εφαρμογή όταν σταματήσεις';t.hidden=false;setTimeout(()=>t.hidden=true,8000);}});
 }
 </script>
-<script src="tc-cp.js?v=50"></script>
+<script src="tc-cp.js?v=51"></script>
