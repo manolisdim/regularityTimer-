@@ -155,9 +155,14 @@ function render(){
     // και με το GPS (απόσταση πάνω στη διαδρομή του πρώτου αυτοκινήτου)
     let gpsTxt = "";
     const g = r.A.gps && r.A.gps();
-    if (next && r.trk && r.trk.length > 1 && g && g.last && g.age < 5000){
-      const me = project(r.trk, [g.last.lat, g.last.lon]), tc = project(r.trk, next.loc);
-      if (me && tc && me.d < 150 && tc.d < 80) gpsTxt = `GPS: σε ${fmtM(Math.max(0, tc.s - me.s))}`;
+    if (next){
+      if (!r.trk || r.trk.length < 2) gpsTxt = "GPS: δεν έχει διαδρομή ακόμα";
+      else if (!g || !g.last || g.age > 5000) gpsTxt = "GPS: χωρίς στίγμα";
+      else {
+        const me = project(r.trk, [g.last.lat, g.last.lon]), tc = project(r.trk, next.loc);
+        if (me && tc && me.d < 150 && tc.d < 80) gpsTxt = `GPS: σε ${fmtM(Math.max(0, tc.s - me.s))}`;
+        else gpsTxt = "GPS: εκτός διαδρομής ειδικής";
+      }
     }
     const unsureAhead = r.tcs.filter(t => t.unsure && (!next || t.k < next.k) && (t.dist == null || t.dist > m - 15)).map(t => "TC" + t.k);
     // απόκλιση στα TC που πέρασες
@@ -173,7 +178,7 @@ function render(){
     if (land){ // οριζόντιο: μία γραμμή, για να μη μικραίνει η τουλίπα
       c.style.padding = "4px 12px";
       c.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;white-space:nowrap;overflow:hidden">`
-        + (next ? `<span style="font-size:26px"><b>TC${next.k}</b> σε <b>${toGo}</b> <span style="font-size:22px;color:var(--accent)">στα ${at}</span>${gpsTxt ? ` <span style="color:var(--muted);font-size:16px">· ${gpsTxt}</span>` : ""}</span>` : `<span style="font-size:20px">${main}</span>`)
+        + (next ? `<span style="font-size:26px"><b>TC${next.k}</b> σε <b>${toGo}</b> <span style="font-size:22px;color:var(--accent)">στα ${at}</span>${/σε \d/.test(gpsTxt) ? ` <span style="color:var(--muted);font-size:16px">· ${gpsTxt}</span>` : ""}</span>` : `<span style="font-size:20px">${main}</span>`)
         + `<span style="font-size:22px">${lastTxt}</span></div>`;
       return;
     }
