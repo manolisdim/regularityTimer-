@@ -125,18 +125,25 @@ function ensureCard(){
   // μια λωρίδα στην κορυφή της κάρτας με τις τουλίπες (κάθετο: κάτω από τα μέτρα, οριζόντιο: δεξιά πάνω)
   const host = document.getElementById("tulStack");
   if (!host) return null;
+  // στη θέση των κουμπιών «Προηγούμενη / Επόμενη» τουλίπα (κρύβονται όσο είναι ενεργό το TC)
+  if (!document.getElementById("tcCss")){
+    const st = document.createElement("style"); st.id = "tcCss";
+    st.textContent = ":root.tcon #tulNav{display:none!important}";
+    document.head.appendChild(st);
+  }
   card = document.createElement("div");
   card.id = "tcCard";
   card.style.cssText = "flex:none;padding:8px 12px;border:2px solid var(--accent);border-radius:14px;line-height:1.2";
-  host.insertBefore(card, host.firstChild);
+  const nav = document.getElementById("tulNav");
+  if (nav && nav.parentNode === host) host.insertBefore(card, nav.nextSibling); else host.appendChild(card);
   return card;
 }
 
 function render(){
   try {
     const c = ensureCard(); if (!c) return;
-    if (!on()){ c.hidden = true; return; }
-    c.hidden = false;
+    if (!on()){ c.hidden = true; document.documentElement.classList.remove("tcon"); return; }
+    c.hidden = false; document.documentElement.classList.add("tcon");
     const r = compute();
     if (!r){ c.innerHTML = ""; return; }
     if (r.msg){ c.innerHTML = `<div style="font-size:13px;color:var(--muted);letter-spacing:.06em">TC · ANUBE</div><div style="color:var(--muted);font-size:15px">${r.msg}${err ? " · " + err : ""}</div>`; return; }
