@@ -178,12 +178,13 @@ function render(){
       return;
     }
     c.style.padding = "8px 14px";
-    c.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">${head}<span style="font-size:24px">${lastTxt}</span></div>`
-      + (next
-        ? `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:2px"><span style="font-size:34px;line-height:1.1"><b>TC${next.k}</b> σε <b>${toGo}</b></span><span style="font-size:26px;color:var(--accent);white-space:nowrap">στα <b>${at}</b></span></div>`
-        : `<div style="font-size:22px;margin-top:2px">${main}</div>`)
-      + (info ? `<div style="color:var(--muted);font-size:15px;margin-top:2px">${info}</div>` : "")
-      + (devs.length > 1 ? `<div style="color:var(--muted);font-size:15px;margin-top:2px">${devs.slice(-5).map(t => "TC" + t.k + " " + dv(t)).join(" · ")}</div>` : "");
+    const when = data && data.t ? new Date(data.t * 1000).toLocaleTimeString("el-GR", {hour:"2-digit", minute:"2-digit", hour12:false}) : "";
+    c.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;white-space:nowrap">`
+        + (next ? `<span style="font-size:30px;line-height:1.1"><b>TC${next.k}</b> σε <b>${toGo}</b></span>` : `<span style="font-size:20px;white-space:normal">${main}</span>`)
+        + `<span style="font-size:22px">${lastTxt}</span></div>`
+      + (next ? `<div style="font-size:22px;color:var(--accent);margin-top:2px">στα <b>${at}</b></div>` : "")
+      + `<div style="color:var(--muted);font-size:14px;margin-top:2px">${[info, "Anube " + when + (err ? " ⚠︎" : "")].filter(Boolean).join(" · ")}</div>`
+      + (devs.length > 1 ? `<div style="color:var(--muted);font-size:14px;margin-top:1px;white-space:nowrap;overflow:hidden">${devs.slice(-5).map(t => "TC" + t.k + " " + dv(t)).join(" · ")}</div>` : "");
   } catch(e){ try { if (card) card.innerHTML = '<div class="label">TC · Anube</div><div style="color:var(--muted)">σφάλμα: ' + esc(e.message) + "</div>"; } catch(x){} }
 }
 
