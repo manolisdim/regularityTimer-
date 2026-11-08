@@ -133,7 +133,7 @@ function ensureCard(){
   }
   card = document.createElement("div");
   card.id = "tcCard";
-  card.style.cssText = "flex:none;padding:8px 12px;border:2px solid var(--accent);border-radius:14px;line-height:1.2";
+  card.style.cssText = "order:99;flex:none;padding:8px 12px;border:2px solid var(--accent);border-radius:14px;line-height:1.2";
   const nav = document.getElementById("tulNav");
   if (nav && nav.parentNode === host) host.insertBefore(card, nav.nextSibling); else host.appendChild(card);
   return card;
